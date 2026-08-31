@@ -2,8 +2,9 @@
 ## Title: pfUI [VendorTweaks]
 ## Notes: Throttled pfUI grey-selling takeover, per-character Auto-Vendor and Auto-Delete.
 ## Author: Beth / OpenAI
-## Version: 0.1.8
+## Version: 0.1.12
 ## Dependencies: pfUI
 ## SavedVariablesPerCharacter: pfUI_VendorTweaks
 
+locales.lua
 pfUI-VendorTweaks.lua

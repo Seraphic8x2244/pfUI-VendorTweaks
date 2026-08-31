@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.8
+-- pfUI-VendorTweaks v0.1.12
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -43,6 +43,13 @@ local function GetIDFromLink(link)
   return id and tonumber(id) or nil
 end
 
+local function T_(key)
+  if pfUI.env and pfUI.env.T and pfUI.env.T[key] then
+    return pfUI.env.T[key]
+  end
+  return key
+end
+
 -- -----------------------------------------------------------------------------
 -- Localized self-loot matching
 -- -----------------------------------------------------------------------------
@@ -76,24 +83,6 @@ local function IsSelfLootMessage(msg)
     if string.find(msg, pattern) then return true end
   end
   return false
-end
-
--- -----------------------------------------------------------------------------
--- Cursor tracking for Vanilla drag/drop
--- -----------------------------------------------------------------------------
-local cursorItem = { id = nil, name = nil, bag = nil, slot = nil }
-local originalPickupContainerItem = PickupContainerItem
-
-PickupContainerItem = function(bag, slot)
-  local link = GetContainerItemLink(bag, slot)
-  if link then
-    local id = GetIDFromLink(link)
-    local name = id and GetItemInfo(id) or nil
-    cursorItem = { id = id, name = name, bag = bag, slot = slot }
-  else
-    cursorItem = { id = nil, name = nil, bag = nil, slot = nil }
-  end
-  return originalPickupContainerItem(bag, slot)
 end
 
 -- -----------------------------------------------------------------------------
@@ -186,6 +175,10 @@ local capturedMerchantSellgrays = false
 local hookedVendorButton = nil
 local originalVendorButtonOnClick = nil
 
+local function VendorTweaksGreyButtonClick()
+  StartSellQueue(true, false)
+end
+
 local function SuppressPfUIGreyAutosell()
   local C = pfUI_config or {}
 
@@ -237,16 +230,23 @@ local function HookPfUIVendorButton()
 
   local button = getglobal("pfMerchantAutoVendorButton")
   if not button then return end
-  if hookedVendorButton == button then return end
 
-  RestorePfUIVendorButton()
+  local current = button:GetScript("OnClick")
+  if hookedVendorButton == button and current == VendorTweaksGreyButtonClick then
+    return
+  end
+
+  if hookedVendorButton and hookedVendorButton ~= button then
+    RestorePfUIVendorButton()
+  end
+
+  -- If another addon/fork replaced the handler after our first hook, preserve
+  -- that newest handler as the one to restore when takeover is disabled.
   hookedVendorButton = button
-  originalVendorButtonOnClick = button:GetScript("OnClick")
+  originalVendorButtonOnClick = current
 
   -- Preserve pfUI's button and tooltip; only replace the action.
-  button:SetScript("OnClick", function()
-    StartSellQueue(true, false)
-  end)
+  button:SetScript("OnClick", VendorTweaksGreyButtonClick)
 end
 
 local function ApplyGreyTakeover()
@@ -263,62 +263,78 @@ end
 
 -- -----------------------------------------------------------------------------
 -- Loot-only Auto-Delete
+-- CHAT_MSG_LOOT arms IDs, BAG_UPDATE activity is debounced for 0.20s, then the
+-- worker deletes one matching stack per step. Any lock/cursor verification
+-- failure aborts the pending cleanup (fail closed; no retry loop).
 -- -----------------------------------------------------------------------------
 local pendingDeleteIDs = {}
 local deletePendingAt = nil
 local DELETE_DEBOUNCE = 0.20
+local DELETE_STEP_DELAY = 0.10
 local deleteWorker = CreateFrame("Frame", "pfVendorTweaksDeleteWorker", UIParent)
 deleteWorker:Hide()
 
-local function ExecuteSafeDelete()
+local function StopDeleteWorker(clearPending)
+  if clearPending then pendingDeleteIDs = {} end
+  deletePendingAt = nil
+  deleteWorker:Hide()
+end
+
+local function ExecuteSafeDeleteStep()
   if not DB or not Enabled("autoDelete") then
-    pendingDeleteIDs = {}
-    deletePendingAt = nil
-    deleteWorker:Hide()
+    StopDeleteWorker(true)
     return
   end
 
-  if CursorHasItem() then
-    deleteWorker:Show()
-    return
-  end
+  -- Never interfere with an item already held by the player.
+  if CursorHasItem() then return end
 
   for bag = 0, 4 do
     local size = GetContainerNumSlots(bag) or 0
     for slot = 1, size do
       local link = GetContainerItemLink(bag, slot)
-      if link then
-        local id = GetIDFromLink(link)
-        if id and pendingDeleteIDs[id] and DB.deleteList[id] then
-          PickupContainerItem(bag, slot)
-          DeleteCursorItem()
-          DEFAULT_CHAT_FRAME:AddMessage("|cffff3333[VendorTweaks]|r Deleted: " .. link)
+      local id = GetIDFromLink(link)
+
+      if id and pendingDeleteIDs[id] and DB.deleteList[id] then
+        local _, _, locked = GetContainerItemInfo(bag, slot)
+        if locked then
+          StopDeleteWorker(true)
+          return
         end
+
+        PickupContainerItem(bag, slot)
+
+        local cursorType, cursorID = GetCursorInfo()
+        if cursorType ~= "item" or tonumber(cursorID) ~= id then
+          if CursorHasItem() then ClearCursor() end
+          StopDeleteWorker(true)
+          return
+        end
+
+        DeleteCursorItem()
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff3333[VendorTweaks]|r " .. string.format(T_("Deleted: %s"), link))
+
+        -- Let the server settle this deletion before looking for another stack.
+        deletePendingAt = GetTime() + DELETE_STEP_DELAY
+        deleteWorker:Show()
+        return
       end
     end
   end
 
-  pendingDeleteIDs = {}
-  deletePendingAt = nil
-  deleteWorker:Hide()
+  -- No matching pending items remain in the bags.
+  StopDeleteWorker(true)
 end
 
 deleteWorker:SetScript("OnUpdate", function()
   if not deletePendingAt or GetTime() < deletePendingAt then return end
   if CursorHasItem() then return end
-  ExecuteSafeDelete()
+  ExecuteSafeDeleteStep()
 end)
 
 -- -----------------------------------------------------------------------------
 -- pfUI Components configuration
 -- -----------------------------------------------------------------------------
-local function T_(key)
-  if pfUI.env and pfUI.env.T and pfUI.env.T[key] then
-    return pfUI.env.T[key]
-  end
-  return key
-end
-
 local function BuildComponentsPanel(parent)
   if parent.pfVTBuilt then return end
   parent.pfVTBuilt = true
@@ -326,14 +342,55 @@ local function BuildComponentsPanel(parent)
 
   local title = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -8)
-  title:SetText("Vendor Tweaks")
+  title:SetText(T_("Vendor Tweaks"))
+
+  -- pfUI's modern checkbox skin builds its backdrop from child frames. A texture
+  -- on the CheckButton itself can therefore render underneath that backdrop even
+  -- on the OVERLAY draw layer. Keep the mark on its own child frame above every
+  -- pfUI backdrop frame instead of relying on SetCheckedTexture().
+  local function AttachCheckboxMark(cb)
+    local mark = CreateFrame("Frame", nil, cb)
+    mark:SetAllPoints(cb)
+
+    local level = cb:GetFrameLevel() + 1
+    if cb.backdrop and cb.backdrop.GetFrameLevel and cb.backdrop:GetFrameLevel() >= level then
+      level = cb.backdrop:GetFrameLevel() + 1
+    end
+    if cb.backdrop_border and cb.backdrop_border.GetFrameLevel and cb.backdrop_border:GetFrameLevel() >= level then
+      level = cb.backdrop_border:GetFrameLevel() + 1
+    end
+    mark:SetFrameLevel(level)
+    mark:EnableMouse(false)
+
+    local check = mark:CreateTexture(nil, "OVERLAY")
+    check:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+    check:SetAllPoints(mark)
+
+    cb.pfVTMark = mark
+    mark:Hide()
+  end
+
+  local function UpdateCheckboxMark(cb)
+    if not cb or not cb.pfVTMark then return end
+    if cb:GetChecked() then
+      cb.pfVTMark:Show()
+    else
+      cb.pfVTMark:Hide()
+    end
+  end
+
+  local function SetCheckboxChecked(cb, value)
+    cb:SetChecked(value)
+    UpdateCheckboxMark(cb)
+  end
 
   local function MakeCheckbox(anchor, y, text, key, onChange)
-    local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+    local cb = CreateFrame("CheckButton", nil, parent)
     cb:SetWidth(20)
     cb:SetHeight(20)
     cb:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, y)
     if pfUI.api and pfUI.api.SkinCheckbox then pfUI.api.SkinCheckbox(cb) end
+    AttachCheckboxMark(cb)
 
     local label = cb:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     label:SetPoint("LEFT", cb, "RIGHT", 5, 0)
@@ -342,6 +399,7 @@ local function BuildComponentsPanel(parent)
     cb:SetScript("OnClick", function()
       if not DB then return end
       DB[key] = this:GetChecked() and "1" or "0"
+      UpdateCheckboxMark(this)
       if onChange then onChange() end
     end)
 
@@ -349,27 +407,16 @@ local function BuildComponentsPanel(parent)
   end
 
   local takeover = MakeCheckbox(title, -12,
-    "Take over pfUI grey selling (throttled)", "takeoverGreys", function()
+    T_("Take over pfUI grey selling (throttled)"), "takeoverGreys", function()
       CancelSellQueue()
       ApplyGreyTakeover()
     end)
 
   local autoGreys = MakeCheckbox(takeover, -4,
-    "Auto-sell greys when merchant opens", "autoSellGreys")
-
-  local autoVendor = MakeCheckbox(autoGreys, -4,
-    "Enable Auto-Vendor list", "autoVendor")
-
-  local autoDelete = MakeCheckbox(autoVendor, -4,
-    "Enable Auto-Delete list", "autoDelete", function()
-      if not Enabled("autoDelete") then
-        pendingDeleteIDs = {}
-        deleteWorker:Hide()
-      end
-    end)
+    T_("Auto-sell greys when merchant opens"), "autoSellGreys")
 
   local delayLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  delayLabel:SetPoint("TOPLEFT", autoDelete, "BOTTOMLEFT", 0, -16)
+  delayLabel:SetPoint("TOPLEFT", autoGreys, "BOTTOMLEFT", 0, -16)
 
   local slider = CreateFrame("Slider", "pfVT_ComponentSpeedSlider", parent, "OptionsSliderTemplate")
   slider:SetPoint("TOPLEFT", delayLabel, "BOTTOMLEFT", 0, -8)
@@ -384,16 +431,34 @@ local function BuildComponentsPanel(parent)
     if not DB then return end
     local val = floor(this:GetValue() * 100 + 0.5) / 100
     DB.interval = tostring(val)
-    delayLabel:SetText(string.format("Vendor sell delay: %.2f seconds", val))
+    delayLabel:SetText(string.format(T_("Vendor sell delay: %.2f seconds"), val))
   end)
 
-  local vendorHeader = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  vendorHeader:SetPoint("TOPLEFT", slider, "BOTTOMLEFT", 0, -30)
-  vendorHeader:SetText("Auto-Vendor")
+  -- The list toggles double as the two side-by-side section subheaders.
+  local autoVendor = MakeCheckbox(slider, -24,
+    T_("Auto-Vendor"), "autoVendor")
 
-  local deleteHeader = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  deleteHeader:SetPoint("TOPLEFT", vendorHeader, "TOPLEFT", 220, 0)
-  deleteHeader:SetText("Auto-Delete")
+  local autoDelete = CreateFrame("CheckButton", nil, parent)
+  autoDelete:SetWidth(20)
+  autoDelete:SetHeight(20)
+  autoDelete:SetPoint("TOPLEFT", autoVendor, "TOPLEFT", 220, 0)
+  if pfUI.api and pfUI.api.SkinCheckbox then pfUI.api.SkinCheckbox(autoDelete) end
+  AttachCheckboxMark(autoDelete)
+
+  local deleteLabel = autoDelete:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  deleteLabel:SetPoint("LEFT", autoDelete, "RIGHT", 5, 0)
+  deleteLabel:SetText(T_("Auto-Delete"))
+
+  autoDelete:SetScript("OnClick", function()
+    if not DB then return end
+    DB.autoDelete = this:GetChecked() and "1" or "0"
+    UpdateCheckboxMark(this)
+    if not Enabled("autoDelete") then
+      pendingDeleteIDs = {}
+      deletePendingAt = nil
+      deleteWorker:Hide()
+    end
+  end)
 
   local function MakeDropSlot(header, text)
     local frame = CreateFrame("Button", nil, parent)
@@ -407,15 +472,46 @@ local function BuildComponentsPanel(parent)
     return frame
   end
 
-  local vendorDrop = MakeDropSlot(vendorHeader, "Drop item here to vendor")
-  local deleteDrop = MakeDropSlot(deleteHeader, "Drop item here to delete")
+  local vendorDrop = MakeDropSlot(autoVendor, T_("Drop item here to vendor"))
+  local deleteDrop = MakeDropSlot(autoDelete, T_("Drop item here to delete"))
+
+  local LIST_WIDTH = 195
+  local LIST_HEIGHT = 190
+  local ROW_HEIGHT = 19
+
+  local function MakeListScroll(drop)
+    local scroll = CreateFrame("ScrollFrame", nil, parent)
+    scroll:SetWidth(LIST_WIDTH)
+    scroll:SetHeight(LIST_HEIGHT)
+    scroll:SetPoint("TOPLEFT", drop, "BOTTOMLEFT", 0, -7)
+    if pfUI.api and pfUI.api.CreateBackdrop then pfUI.api.CreateBackdrop(scroll, nil, true) end
+
+    local child = CreateFrame("Frame", nil, scroll)
+    child:SetWidth(LIST_WIDTH - 4)
+    child:SetHeight(LIST_HEIGHT)
+    scroll:SetScrollChild(child)
+
+    scroll:EnableMouseWheel(true)
+    scroll:SetScript("OnMouseWheel", function()
+      local maxScroll = math.max(0, child:GetHeight() - scroll:GetHeight())
+      local nextScroll = scroll:GetVerticalScroll() - (arg1 * (ROW_HEIGHT * 3))
+      if nextScroll < 0 then nextScroll = 0 end
+      if nextScroll > maxScroll then nextScroll = maxScroll end
+      scroll:SetVerticalScroll(nextScroll)
+    end)
+
+    return scroll, child
+  end
+
+  local vendorScroll, vendorChild = MakeListScroll(vendorDrop)
+  local deleteScroll, deleteChild = MakeListScroll(deleteDrop)
 
   local vendorPool = {}
   local deletePool = {}
 
-  local function MakeRow(pool, red)
-    local row = CreateFrame("Button", nil, parent)
-    row:SetWidth(195)
+  local function MakeRow(pool, rowParent, red)
+    local row = CreateFrame("Button", nil, rowParent)
+    row:SetWidth(LIST_WIDTH - 4)
     row:SetHeight(18)
     row.text = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.text:SetPoint("LEFT", row, "LEFT", 2, 0)
@@ -431,17 +527,28 @@ local function BuildComponentsPanel(parent)
     return row
   end
 
+  local function DisplayName(id, savedName)
+    local liveName = GetItemInfo(id)
+    if liveName then
+      return liveName
+    end
+    if type(savedName) == "string" then
+      return savedName
+    end
+    return string.format(T_("ID: %d"), id)
+  end
+
   local function Refresh()
     if not DB then return end
 
-    takeover:SetChecked(Enabled("takeoverGreys"))
-    autoGreys:SetChecked(Enabled("autoSellGreys"))
-    autoVendor:SetChecked(Enabled("autoVendor"))
-    autoDelete:SetChecked(Enabled("autoDelete"))
+    SetCheckboxChecked(takeover, Enabled("takeoverGreys"))
+    SetCheckboxChecked(autoGreys, Enabled("autoSellGreys"))
+    SetCheckboxChecked(autoVendor, Enabled("autoVendor"))
+    SetCheckboxChecked(autoDelete, Enabled("autoDelete"))
 
     local interval = GetInterval()
     slider:SetValue(interval)
-    delayLabel:SetText(string.format("Vendor sell delay: %.2f seconds", interval))
+    delayLabel:SetText(string.format(T_("Vendor sell delay: %.2f seconds"), interval))
 
     for _, row in ipairs(vendorPool) do row:Hide() end
     for _, row in ipairs(deletePool) do row:Hide() end
@@ -449,52 +556,63 @@ local function BuildComponentsPanel(parent)
     local i = 0
     for id, name in pairs(DB.vendorList) do
       i = i + 1
-      local idKey = id
-      local row = vendorPool[i] or MakeRow(vendorPool, false)
+      local idKey = tonumber(id) or id
+      local row = vendorPool[i] or MakeRow(vendorPool, vendorChild, false)
+      local display = DisplayName(idKey, name)
+      if display and display ~= name then DB.vendorList[id] = display end
       row:ClearAllPoints()
-      row:SetPoint("TOPLEFT", vendorDrop, "BOTTOMLEFT", 0, -7 - ((i - 1) * 19))
-      row.text:SetText(type(name) == "string" and name or ("ID: " .. idKey))
+      row:SetPoint("TOPLEFT", vendorChild, "TOPLEFT", 2, -2 - ((i - 1) * ROW_HEIGHT))
+      row.text:SetText(display)
       row.del:SetScript("OnClick", function()
         DB.vendorList[idKey] = nil
+        DB.vendorList[tostring(idKey)] = nil
         Refresh()
       end)
       row:Show()
     end
+    vendorChild:SetHeight(math.max(LIST_HEIGHT, 4 + (i * ROW_HEIGHT)))
+    vendorScroll:SetVerticalScroll(math.min(vendorScroll:GetVerticalScroll(), math.max(0, vendorChild:GetHeight() - vendorScroll:GetHeight())))
 
     i = 0
     for id, name in pairs(DB.deleteList) do
       i = i + 1
-      local idKey = id
-      local row = deletePool[i] or MakeRow(deletePool, true)
+      local idKey = tonumber(id) or id
+      local row = deletePool[i] or MakeRow(deletePool, deleteChild, true)
+      local display = DisplayName(idKey, name)
+      if display and display ~= name then DB.deleteList[id] = display end
       row:ClearAllPoints()
-      row:SetPoint("TOPLEFT", deleteDrop, "BOTTOMLEFT", 0, -7 - ((i - 1) * 19))
-      row.text:SetText(type(name) == "string" and name or ("ID: " .. idKey))
+      row:SetPoint("TOPLEFT", deleteChild, "TOPLEFT", 2, -2 - ((i - 1) * ROW_HEIGHT))
+      row.text:SetText(display)
       row.del:SetScript("OnClick", function()
         DB.deleteList[idKey] = nil
+        DB.deleteList[tostring(idKey)] = nil
         Refresh()
       end)
       row:Show()
     end
+    deleteChild:SetHeight(math.max(LIST_HEIGHT, 4 + (i * ROW_HEIGHT)))
+    deleteScroll:SetVerticalScroll(math.min(deleteScroll:GetVerticalScroll(), math.max(0, deleteChild:GetHeight() - deleteScroll:GetHeight())))
   end
 
   local function HandleDrop(mode)
-    if not DB or not CursorHasItem() or not cursorItem.id then return end
+    if not DB then return end
 
+    local cursorType, itemID = GetCursorInfo()
+    itemID = tonumber(itemID)
+    if cursorType ~= "item" or not itemID then return end
+
+    local name = GetItemInfo(itemID)
     if mode == "vendor" then
-      DB.vendorList[cursorItem.id] = cursorItem.name or ("Item #" .. cursorItem.id)
-      DB.deleteList[cursorItem.id] = nil
+      DB.vendorList[itemID] = name or string.format(T_("Item #%d"), itemID)
+      DB.deleteList[itemID] = nil
+      DB.deleteList[tostring(itemID)] = nil
     else
-      DB.deleteList[cursorItem.id] = cursorItem.name or ("Item #" .. cursorItem.id)
-      DB.vendorList[cursorItem.id] = nil
+      DB.deleteList[itemID] = name or string.format(T_("Item #%d"), itemID)
+      DB.vendorList[itemID] = nil
+      DB.vendorList[tostring(itemID)] = nil
     end
 
-    if cursorItem.bag and cursorItem.slot then
-      PickupContainerItem(cursorItem.bag, cursorItem.slot)
-    else
-      ClearCursor()
-    end
-
-    cursorItem = { id = nil, name = nil, bag = nil, slot = nil }
+    ClearCursor()
     Refresh()
   end
 
@@ -508,7 +626,7 @@ local function BuildComponentsPanel(parent)
 end
 
 if pfUI.gui and pfUI.gui.CreateGUIEntry then
-  pfUI.gui.CreateGUIEntry(T_("Components"), "Vendor Tweaks", function()
+  pfUI.gui.CreateGUIEntry(T_("Thirdparty"), T_("Vendor Tweaks"), function()
     BuildComponentsPanel(this)
   end)
 end
@@ -571,12 +689,9 @@ eventFrame:SetScript("OnEvent", function()
 
   elseif event == "CHAT_MSG_LOOT" then
     if DB and Enabled("autoDelete") and arg1 and IsSelfLootMessage(arg1) then
-      local _, _, link = string.find(arg1, "(item:%d+:%d+:%d+:%d+)")
-      if link then
-        local id = GetIDFromLink(link)
-        if id and DB.deleteList[id] then
-          pendingDeleteIDs[id] = true
-        end
+      local id = GetIDFromLink(arg1)
+      if id and DB.deleteList[id] then
+        pendingDeleteIDs[id] = true
       end
     end
 
