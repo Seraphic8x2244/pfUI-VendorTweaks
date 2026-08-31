@@ -1,7 +1,7 @@
 ## Interface: 11200
 ## Title: pfUI [VendorTweaks]
 ## Notes: Throttled pfUI grey-selling takeover, per-character Auto-Vendor and Auto-Delete.
-## Author: Beth / OpenAI
+## Author: Seraphic8x-2244
 ## Version: 0.1.12
 ## Dependencies: pfUI
 ## SavedVariablesPerCharacter: pfUI_VendorTweaks
