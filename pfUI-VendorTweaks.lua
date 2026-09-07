@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.12
+-- pfUI-VendorTweaks v0.1.18
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -460,15 +460,66 @@ local function BuildComponentsPanel(parent)
     end
   end)
 
+  local function SetDropHighlight(frame, shown)
+    if not frame or not frame.goldBorder then return end
+    for _, tex in ipairs(frame.goldBorder) do
+      if shown then tex:Show() else tex:Hide() end
+    end
+  end
+
   local function MakeDropSlot(header, text)
     local frame = CreateFrame("Button", nil, parent)
-    frame:SetWidth(195)
+    frame:SetWidth(42)
     frame:SetHeight(42)
     frame:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -7)
     if pfUI.api and pfUI.api.CreateBackdrop then pfUI.api.CreateBackdrop(frame, nil, true) end
-    local label = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    label:SetPoint("CENTER", frame, "CENTER", 0, 0)
+
+    -- Gold inset border while an item cursor is hovering over this drop well.
+    frame.goldBorder = {}
+    local function GoldEdge()
+      local tex = frame:CreateTexture(nil, "OVERLAY")
+      tex:SetTexture(1, .78, 0)
+      tex:SetAlpha(.95)
+      tex:Hide()
+      table.insert(frame.goldBorder, tex)
+      return tex
+    end
+
+    local top = GoldEdge()
+    top:SetHeight(2)
+    top:SetPoint("TOPLEFT", frame, "TOPLEFT", 3, -3)
+    top:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -3, -3)
+
+    local bottom = GoldEdge()
+    bottom:SetHeight(2)
+    bottom:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 3, 3)
+    bottom:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -3, 3)
+
+    local left = GoldEdge()
+    left:SetWidth(2)
+    left:SetPoint("TOPLEFT", frame, "TOPLEFT", 3, -3)
+    left:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 3, 3)
+
+    local right = GoldEdge()
+    right:SetWidth(2)
+    right:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -3, -3)
+    right:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -3, 3)
+
+    local label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    label:SetPoint("LEFT", frame, "RIGHT", 7, 0)
+    label:SetWidth(145)
+    label:SetJustifyH("LEFT")
     label:SetText(text)
+    frame.label = label
+
+    frame:SetScript("OnEnter", function()
+      local cursorType = GetCursorInfo()
+      SetDropHighlight(this, cursorType == "item")
+    end)
+    frame:SetScript("OnLeave", function()
+      SetDropHighlight(this, false)
+    end)
+
     return frame
   end
 
@@ -505,6 +556,105 @@ local function BuildComponentsPanel(parent)
 
   local vendorScroll, vendorChild = MakeListScroll(vendorDrop)
   local deleteScroll, deleteChild = MakeListScroll(deleteDrop)
+
+  -- Vanilla 1.12 has no AnimationGroup API. Keep the entire flourish on
+  -- the already-working drop button itself: this avoids extra frames, strata,
+  -- coordinate conversion, and any chance of the animation intercepting input.
+  local function MakeDropAnimator(drop, listFrame)
+    -- Keep input on the proven drop target, but render the transient icon on
+    -- a mouse-disabled child frame above pfUI's backdrop frames.
+    local visual = CreateFrame("Frame", nil, drop)
+    visual:SetWidth(34)
+    visual:SetHeight(34)
+    visual:SetPoint("CENTER", drop, "CENTER", 0, 0)
+
+    -- pfUI's backdrop is made from child frames, so an arbitrary +N frame
+    -- level is not reliable. Mirror the proven checkbox-mark approach and
+    -- explicitly sit above whichever backdrop frame is actually highest.
+    local visualLevel = drop:GetFrameLevel() + 1
+    if drop.backdrop and drop.backdrop.GetFrameLevel and drop.backdrop:GetFrameLevel() >= visualLevel then
+      visualLevel = drop.backdrop:GetFrameLevel() + 1
+    end
+    if drop.backdrop_border and drop.backdrop_border.GetFrameLevel and drop.backdrop_border:GetFrameLevel() >= visualLevel then
+      visualLevel = drop.backdrop_border:GetFrameLevel() + 1
+    end
+    visual:SetFrameLevel(visualLevel)
+    visual:EnableMouse(false)
+    visual:Hide()
+
+    local icon = visual:CreateTexture(nil, "OVERLAY")
+    icon:SetAllPoints(visual)
+    icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+
+    local elapsed = 0
+    local running = false
+    local startX, startY = 0, 0
+    local targetX, targetY = 0, -55
+
+    drop:SetScript("OnUpdate", function()
+      if not running then return end
+
+      elapsed = elapsed + arg1
+      local flashTime = .18
+      local slideTime = .42
+
+      if elapsed <= flashTime then
+        local pulse = math.abs(math.sin((elapsed / flashTime) * math.pi * 2))
+        visual:SetAlpha(.55 + (.45 * pulse))
+        return
+      end
+
+      local t = (elapsed - flashTime) / slideTime
+      if t >= 1 then
+        running = false
+        visual:Hide()
+        visual:SetAlpha(1)
+        visual:SetScale(1)
+        visual:ClearAllPoints()
+        visual:SetPoint("CENTER", drop, "CENTER", 0, 0)
+        return
+      end
+
+      -- Smoothstep easing keeps the movement continuous at both ends.
+      local e = t * t * (3 - (2 * t))
+      local x = startX + ((targetX - startX) * e)
+      local y = startY + ((targetY - startY) * e)
+
+      visual:ClearAllPoints()
+      visual:SetPoint("CENTER", drop, "CENTER", x, y)
+      visual:SetScale(1 - (.65 * e))
+      visual:SetAlpha(1 - (.35 * e))
+    end)
+
+    local animator = {}
+    function animator:Play(texture)
+      local dropX, dropY = drop:GetCenter()
+      local listLeft = listFrame:GetLeft()
+      local listTop = listFrame:GetTop()
+
+      startX, startY = 0, 0
+      if dropX and dropY and listLeft and listTop then
+        targetX = (listLeft + 14) - dropX
+        targetY = (listTop - 12) - dropY
+      else
+        targetX, targetY = 0, -55
+      end
+
+      elapsed = 0
+      running = true
+      icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
+      visual:SetAlpha(1)
+      visual:SetScale(1)
+      visual:ClearAllPoints()
+      visual:SetPoint("CENTER", drop, "CENTER", 0, 0)
+      visual:Show()
+    end
+
+    return animator
+  end
+
+  local vendorDropAnim = MakeDropAnimator(vendorDrop, vendorScroll)
+  local deleteDropAnim = MakeDropAnimator(deleteDrop, deleteScroll)
 
   local vendorPool = {}
   local deletePool = {}
@@ -597,23 +747,62 @@ local function BuildComponentsPanel(parent)
   local function HandleDrop(mode)
     if not DB then return end
 
-    local cursorType, itemID = GetCursorInfo()
+    -- Capture the cursor link and texture before ClearCursor(). On Vanilla the
+    -- link is already known for a dragged bag item, which makes this more
+    -- reliable than asking the item cache by numeric ID alone.
+    local cursorType, itemID, itemLink = GetCursorInfo()
     itemID = tonumber(itemID)
     if cursorType ~= "item" or not itemID then return end
 
-    local name = GetItemInfo(itemID)
+    local name, _, _, _, _, _, _, _, _, texture = GetItemInfo(itemLink or itemID)
+    if not name or not texture then
+      local fallbackName, _, _, _, _, _, _, _, _, fallbackTexture = GetItemInfo(itemID)
+      name = name or fallbackName
+      texture = texture or fallbackTexture
+    end
     if mode == "vendor" then
       DB.vendorList[itemID] = name or string.format(T_("Item #%d"), itemID)
       DB.deleteList[itemID] = nil
       DB.deleteList[tostring(itemID)] = nil
+      SetDropHighlight(vendorDrop, false)
     else
       DB.deleteList[itemID] = name or string.format(T_("Item #%d"), itemID)
       DB.vendorList[itemID] = nil
       DB.vendorList[tostring(itemID)] = nil
+      SetDropHighlight(deleteDrop, false)
     end
 
     ClearCursor()
+
+    -- GetItemInfo can return no texture at the exact moment a bag item is
+    -- dropped on some Vanilla clients. Once ClearCursor() has returned the
+    -- item to its bag slot, resolve the icon from the physical bag contents
+    -- instead. Matching stays by item ID, so similarly named items cannot
+    -- provide the wrong artwork.
+    if not texture then
+      for bag = 0, 4 do
+        local size = GetContainerNumSlots(bag) or 0
+        for slot = 1, size do
+          local bagLink = GetContainerItemLink(bag, slot)
+          if bagLink and GetIDFromLink(bagLink) == itemID then
+            local bagTexture = GetContainerItemInfo(bag, slot)
+            if bagTexture then
+              texture = bagTexture
+              break
+            end
+          end
+        end
+        if texture then break end
+      end
+    end
+
     Refresh()
+
+    if mode == "vendor" then
+      vendorDropAnim:Play(texture)
+    else
+      deleteDropAnim:Play(texture)
+    end
   end
 
   vendorDrop:SetScript("OnClick", function() HandleDrop("vendor") end)
