@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.18
+-- pfUI-VendorTweaks v0.1.19
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -560,7 +560,7 @@ local function BuildComponentsPanel(parent)
   -- Vanilla 1.12 has no AnimationGroup API. Keep the entire flourish on
   -- the already-working drop button itself: this avoids extra frames, strata,
   -- coordinate conversion, and any chance of the animation intercepting input.
-  local function MakeDropAnimator(drop, listFrame)
+  local function MakeDropAnimator(drop)
     -- Keep input on the proven drop target, but render the transient icon on
     -- a mouse-disabled child frame above pfUI's backdrop frames.
     local visual = CreateFrame("Frame", nil, drop)
@@ -589,7 +589,7 @@ local function BuildComponentsPanel(parent)
     local elapsed = 0
     local running = false
     local startX, startY = 0, 0
-    local targetX, targetY = 0, -55
+    local targetX, targetY = -7, -55
 
     drop:SetScript("OnUpdate", function()
       if not running then return end
@@ -628,17 +628,8 @@ local function BuildComponentsPanel(parent)
 
     local animator = {}
     function animator:Play(texture)
-      local dropX, dropY = drop:GetCenter()
-      local listLeft = listFrame:GetLeft()
-      local listTop = listFrame:GetTop()
-
       startX, startY = 0, 0
-      if dropX and dropY and listLeft and listTop then
-        targetX = (listLeft + 14) - dropX
-        targetY = (listTop - 12) - dropY
-      else
-        targetX, targetY = 0, -55
-      end
+      targetX, targetY = -7, -55
 
       elapsed = 0
       running = true
@@ -653,8 +644,8 @@ local function BuildComponentsPanel(parent)
     return animator
   end
 
-  local vendorDropAnim = MakeDropAnimator(vendorDrop, vendorScroll)
-  local deleteDropAnim = MakeDropAnimator(deleteDrop, deleteScroll)
+  local vendorDropAnim = MakeDropAnimator(vendorDrop)
+  local deleteDropAnim = MakeDropAnimator(deleteDrop)
 
   local vendorPool = {}
   local deletePool = {}
