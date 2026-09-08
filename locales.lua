@@ -5,7 +5,7 @@
 -- the fallback when a translation is missing.
 --
 -- When adding translations, keep format specifiers unchanged:
---   %.2f   %d   %s
+--   %d   %s
 
 if not pfUI_translation then return end
 
