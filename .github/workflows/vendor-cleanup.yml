@@ -1,0 +1,144 @@
+name: VendorTweaks one-shot cleanup
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply v0.1.19 cleanup
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('pfUI-VendorTweaks.lua')
+          s = p.read_text()
+
+          def once(old, new, label):
+              global s
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 match, found {count}')
+              s = s.replace(old, new, 1)
+
+          once('-- pfUI-VendorTweaks v0.1.18', '-- pfUI-VendorTweaks v0.1.19', 'Lua version')
+
+          old = '''  -- pfUI's modern checkbox skin builds its backdrop from child frames. A texture
+          -- on the CheckButton itself can therefore render underneath that backdrop even
+          -- on the OVERLAY draw layer. Keep the mark on its own child frame above every
+          -- pfUI backdrop frame instead of relying on SetCheckedTexture().
+          local function AttachCheckboxMark(cb)
+            local mark = CreateFrame("Frame", nil, cb)
+            mark:SetAllPoints(cb)
+
+            local level = cb:GetFrameLevel() + 1
+            if cb.backdrop and cb.backdrop.GetFrameLevel and cb.backdrop:GetFrameLevel() >= level then
+              level = cb.backdrop:GetFrameLevel() + 1
+            end
+            if cb.backdrop_border and cb.backdrop_border.GetFrameLevel and cb.backdrop_border:GetFrameLevel() >= level then
+              level = cb.backdrop_border:GetFrameLevel() + 1
+            end
+            mark:SetFrameLevel(level)
+            mark:EnableMouse(false)
+          '''
+          new = '''  -- pfUI skins may build their backdrop from child frames, so an OVERLAY texture
+          -- on the owner itself can still render underneath the skin. Centralize the one
+          -- compatibility rule used by both checkbox marks and drop-animation visuals.
+          local function RaiseAboveBackdrop(child, owner)
+            local level = owner:GetFrameLevel() + 1
+            if owner.backdrop and owner.backdrop.GetFrameLevel and owner.backdrop:GetFrameLevel() >= level then
+              level = owner.backdrop:GetFrameLevel() + 1
+            end
+            if owner.backdrop_border and owner.backdrop_border.GetFrameLevel and owner.backdrop_border:GetFrameLevel() >= level then
+              level = owner.backdrop_border:GetFrameLevel() + 1
+            end
+            child:SetFrameLevel(level)
+          end
+
+          local function AttachCheckboxMark(cb)
+            local mark = CreateFrame("Frame", nil, cb)
+            mark:SetAllPoints(cb)
+            RaiseAboveBackdrop(mark, cb)
+            mark:EnableMouse(false)
+          '''
+          once(old, new, 'shared backdrop helper')
+
+          old = '''    -- pfUI's backdrop is made from child frames, so an arbitrary +N frame
+              -- level is not reliable. Mirror the proven checkbox-mark approach and
+              -- explicitly sit above whichever backdrop frame is actually highest.
+              local visualLevel = drop:GetFrameLevel() + 1
+              if drop.backdrop and drop.backdrop.GetFrameLevel and drop.backdrop:GetFrameLevel() >= visualLevel then
+                visualLevel = drop.backdrop:GetFrameLevel() + 1
+              end
+              if drop.backdrop_border and drop.backdrop_border.GetFrameLevel and drop.backdrop_border:GetFrameLevel() >= visualLevel then
+                visualLevel = drop.backdrop_border:GetFrameLevel() + 1
+              end
+              visual:SetFrameLevel(visualLevel)
+          '''
+          new = '''    RaiseAboveBackdrop(visual, drop)
+          '''
+          once(old, new, 'animation backdrop helper')
+
+          once('local function MakeDropAnimator(drop, listFrame)', 'local function MakeDropAnimator(drop)', 'animator signature')
+          once('local targetX, targetY = 0, -55', 'local targetX, targetY = -7, -55', 'default animation target')
+
+          old = '''    function animator:Play(texture)
+              local dropX, dropY = drop:GetCenter()
+              local listLeft = listFrame:GetLeft()
+              local listTop = listFrame:GetTop()
+
+              startX, startY = 0, 0
+              if dropX and dropY and listLeft and listTop then
+                targetX = (listLeft + 14) - dropX
+                targetY = (listTop - 12) - dropY
+              else
+                targetX, targetY = 0, -55
+              end
+
+              elapsed = 0
+          '''
+          new = '''    function animator:Play(texture)
+              startX, startY = 0, 0
+              targetX, targetY = -7, -55
+
+              elapsed = 0
+          '''
+          once(old, new, 'fixed animation travel')
+
+          once('local vendorDropAnim = MakeDropAnimator(vendorDrop, vendorScroll)', 'local vendorDropAnim = MakeDropAnimator(vendorDrop)', 'vendor animator')
+          once('local deleteDropAnim = MakeDropAnimator(deleteDrop, deleteScroll)', 'local deleteDropAnim = MakeDropAnimator(deleteDrop)', 'delete animator')
+          once('''    local name, _, _, _, _, _, _, _, _, texture = GetItemInfo(itemLink or itemID)
+              if not name or not texture then
+          ''', '''    local name, _, _, _, _, _, _, _, _, texture = GetItemInfo(itemLink or itemID)
+              if itemLink and (not name or not texture) then
+          ''', 'duplicate item lookup guard')
+
+          p.write_text(s)
+
+          toc = Path('pfUI-VendorTweaks.toc')
+          t = toc.read_text()
+          if t.count('## Version: 0.1.18') != 1:
+              raise SystemExit('TOC version: expected exactly one 0.1.18')
+          toc.write_text(t.replace('## Version: 0.1.18', '## Version: 0.1.19', 1))
+          PY
+
+      - name: Commit and remove one-shot files
+        shell: bash
+        run: |
+          git rm .github/workflows/vendor-cleanup.yml .github/vendor-cleanup-trigger
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pfUI-VendorTweaks.lua pfUI-VendorTweaks.toc
+          git commit -m "Refactor icon animation handling"
+          git push
