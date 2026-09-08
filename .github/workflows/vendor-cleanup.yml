@@ -16,115 +16,51 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply v0.1.19 cleanup
+      - name: Apply v0.1.19 animation cleanup
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          p = Path('pfUI-VendorTweaks.lua')
-          s = p.read_text()
+          lua = Path('pfUI-VendorTweaks.lua')
+          lines = lua.read_text().splitlines()
 
-          def once(old, new, label):
-              global s
-              count = s.count(old)
-              if count != 1:
-                  raise SystemExit(f'{label}: expected 1 match, found {count}')
-              s = s.replace(old, new, 1)
+          def unique(text, label):
+              matches = [i for i, line in enumerate(lines) if line == text]
+              if len(matches) != 1:
+                  raise SystemExit(f'{label}: expected 1 match, found {len(matches)}')
+              return matches[0]
 
-          once('-- pfUI-VendorTweaks v0.1.18', '-- pfUI-VendorTweaks v0.1.19', 'Lua version')
+          lines[unique('-- pfUI-VendorTweaks v0.1.18', 'Lua version')] = '-- pfUI-VendorTweaks v0.1.19'
+          lines[unique('  local function MakeDropAnimator(drop, listFrame)', 'animator signature')] = '  local function MakeDropAnimator(drop)'
+          lines[unique('    local targetX, targetY = 0, -55', 'default target')] = '    local targetX, targetY = -7, -55'
 
-          old = '''  -- pfUI's modern checkbox skin builds its backdrop from child frames. A texture
-          -- on the CheckButton itself can therefore render underneath that backdrop even
-          -- on the OVERLAY draw layer. Keep the mark on its own child frame above every
-          -- pfUI backdrop frame instead of relying on SetCheckedTexture().
-          local function AttachCheckboxMark(cb)
-            local mark = CreateFrame("Frame", nil, cb)
-            mark:SetAllPoints(cb)
+          play = unique('    function animator:Play(texture)', 'animator Play')
+          elapsed = next((i for i in range(play + 1, len(lines)) if lines[i] == '      elapsed = 0'), None)
+          if elapsed is None:
+              raise SystemExit('animator Play: elapsed marker not found')
+          lines[play + 1:elapsed] = [
+              '      startX, startY = 0, 0',
+              '      targetX, targetY = -7, -55',
+              '',
+          ]
 
-            local level = cb:GetFrameLevel() + 1
-            if cb.backdrop and cb.backdrop.GetFrameLevel and cb.backdrop:GetFrameLevel() >= level then
-              level = cb.backdrop:GetFrameLevel() + 1
-            end
-            if cb.backdrop_border and cb.backdrop_border.GetFrameLevel and cb.backdrop_border:GetFrameLevel() >= level then
-              level = cb.backdrop_border:GetFrameLevel() + 1
-            end
-            mark:SetFrameLevel(level)
-            mark:EnableMouse(false)
-          '''
-          new = '''  -- pfUI skins may build their backdrop from child frames, so an OVERLAY texture
-          -- on the owner itself can still render underneath the skin. Centralize the one
-          -- compatibility rule used by both checkbox marks and drop-animation visuals.
-          local function RaiseAboveBackdrop(child, owner)
-            local level = owner:GetFrameLevel() + 1
-            if owner.backdrop and owner.backdrop.GetFrameLevel and owner.backdrop:GetFrameLevel() >= level then
-              level = owner.backdrop:GetFrameLevel() + 1
-            end
-            if owner.backdrop_border and owner.backdrop_border.GetFrameLevel and owner.backdrop_border:GetFrameLevel() >= level then
-              level = owner.backdrop_border:GetFrameLevel() + 1
-            end
-            child:SetFrameLevel(level)
-          end
+          lines[unique('  local vendorDropAnim = MakeDropAnimator(vendorDrop, vendorScroll)', 'vendor animator call')] = '  local vendorDropAnim = MakeDropAnimator(vendorDrop)'
+          lines[unique('  local deleteDropAnim = MakeDropAnimator(deleteDrop, deleteScroll)', 'delete animator call')] = '  local deleteDropAnim = MakeDropAnimator(deleteDrop)'
 
-          local function AttachCheckboxMark(cb)
-            local mark = CreateFrame("Frame", nil, cb)
-            mark:SetAllPoints(cb)
-            RaiseAboveBackdrop(mark, cb)
-            mark:EnableMouse(false)
-          '''
-          once(old, new, 'shared backdrop helper')
+          result = '\n'.join(lines) + '\n'
 
-          old = '''    -- pfUI's backdrop is made from child frames, so an arbitrary +N frame
-              -- level is not reliable. Mirror the proven checkbox-mark approach and
-              -- explicitly sit above whichever backdrop frame is actually highest.
-              local visualLevel = drop:GetFrameLevel() + 1
-              if drop.backdrop and drop.backdrop.GetFrameLevel and drop.backdrop:GetFrameLevel() >= visualLevel then
-                visualLevel = drop.backdrop:GetFrameLevel() + 1
-              end
-              if drop.backdrop_border and drop.backdrop_border.GetFrameLevel and drop.backdrop_border:GetFrameLevel() >= visualLevel then
-                visualLevel = drop.backdrop_border:GetFrameLevel() + 1
-              end
-              visual:SetFrameLevel(visualLevel)
-          '''
-          new = '''    RaiseAboveBackdrop(visual, drop)
-          '''
-          once(old, new, 'animation backdrop helper')
+          # Preserve the working icon-acquisition and failure-feedback paths.
+          if 'INV_Misc_QuestionMark' not in result:
+              raise SystemExit('question-mark fallback was lost')
+          if 'local bagTexture = GetContainerItemInfo(bag, slot)' not in result:
+              raise SystemExit('bag texture recovery was lost')
+          if 'local visualLevel = drop:GetFrameLevel() + 1' not in result:
+              raise SystemExit('working pfUI layering path was changed')
+          if 'listFrame' in result:
+              raise SystemExit('stale listFrame reference remains')
 
-          once('local function MakeDropAnimator(drop, listFrame)', 'local function MakeDropAnimator(drop)', 'animator signature')
-          once('local targetX, targetY = 0, -55', 'local targetX, targetY = -7, -55', 'default animation target')
-
-          old = '''    function animator:Play(texture)
-              local dropX, dropY = drop:GetCenter()
-              local listLeft = listFrame:GetLeft()
-              local listTop = listFrame:GetTop()
-
-              startX, startY = 0, 0
-              if dropX and dropY and listLeft and listTop then
-                targetX = (listLeft + 14) - dropX
-                targetY = (listTop - 12) - dropY
-              else
-                targetX, targetY = 0, -55
-              end
-
-              elapsed = 0
-          '''
-          new = '''    function animator:Play(texture)
-              startX, startY = 0, 0
-              targetX, targetY = -7, -55
-
-              elapsed = 0
-          '''
-          once(old, new, 'fixed animation travel')
-
-          once('local vendorDropAnim = MakeDropAnimator(vendorDrop, vendorScroll)', 'local vendorDropAnim = MakeDropAnimator(vendorDrop)', 'vendor animator')
-          once('local deleteDropAnim = MakeDropAnimator(deleteDrop, deleteScroll)', 'local deleteDropAnim = MakeDropAnimator(deleteDrop)', 'delete animator')
-          once('''    local name, _, _, _, _, _, _, _, _, texture = GetItemInfo(itemLink or itemID)
-              if not name or not texture then
-          ''', '''    local name, _, _, _, _, _, _, _, _, texture = GetItemInfo(itemLink or itemID)
-              if itemLink and (not name or not texture) then
-          ''', 'duplicate item lookup guard')
-
-          p.write_text(s)
+          lua.write_text(result)
 
           toc = Path('pfUI-VendorTweaks.toc')
           t = toc.read_text()
@@ -140,5 +76,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add pfUI-VendorTweaks.lua pfUI-VendorTweaks.toc
-          git commit -m "Refactor icon animation handling"
+          git commit -m "Refine VendorTweaks icon animation"
           git push
