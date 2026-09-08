@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.19
+-- pfUI-VendorTweaks v0.1.20
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -19,7 +19,8 @@ local function InitDB()
 
   if DB.interval == nil then DB.interval = "0.35" end
   if DB.takeoverGreys == nil then DB.takeoverGreys = "0" end
-  if DB.autoSellGreys == nil then DB.autoSellGreys = "0" end
+  -- v0.1.20: takeoverGreys is also the Auto-Sell ON switch; retire the old split flag.
+  DB.autoSellGreys = nil
   if DB.autoVendor == nil then DB.autoVendor = "1" end
   if DB.autoDelete == nil then DB.autoDelete = "1" end
   if type(DB.vendorList) ~= "table" then DB.vendorList = {} end
@@ -29,7 +30,7 @@ end
 local function GetInterval()
   local n = DB and tonumber(DB.interval) or 0.35
   if n < 0.05 then n = 0.05 end
-  if n > 1.50 then n = 1.50 end
+  if n > 0.50 then n = 0.50 end
   return n
 end
 
@@ -395,6 +396,7 @@ local function BuildComponentsPanel(parent)
     local label = cb:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     label:SetPoint("LEFT", cb, "RIGHT", 5, 0)
     label:SetText(text)
+    cb.label = label
 
     cb:SetScript("OnClick", function()
       if not DB then return end
@@ -406,36 +408,33 @@ local function BuildComponentsPanel(parent)
     return cb
   end
 
+  -- Enabling this is both the takeover switch and the Auto-Sell ON switch.
+  -- When disabled, pfUI's own Auto-Sell setting and behaviour are restored intact.
   local takeover = MakeCheckbox(title, -12,
-    T_("Take over pfUI grey selling (throttled)"), "takeoverGreys", function()
+    T_("Throttle pfUI auto-sell"), "takeoverGreys", function()
       CancelSellQueue()
       ApplyGreyTakeover()
     end)
 
-  local autoGreys = MakeCheckbox(takeover, -4,
-    T_("Auto-sell greys when merchant opens"), "autoSellGreys")
-
-  local delayLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  delayLabel:SetPoint("TOPLEFT", autoGreys, "BOTTOMLEFT", 0, -16)
-
   local slider = CreateFrame("Slider", "pfVT_ComponentSpeedSlider", parent, "OptionsSliderTemplate")
-  slider:SetPoint("TOPLEFT", delayLabel, "BOTTOMLEFT", 0, -8)
-  slider:SetWidth(220)
+  slider:SetPoint("LEFT", takeover.label, "RIGHT", 18, 0)
+  slider:SetWidth(150)
   slider:SetHeight(16)
-  slider:SetMinMaxValues(0.05, 1.50)
+  slider:SetMinMaxValues(0.05, 0.50)
   slider:SetValueStep(0.05)
   if pfUI.api and pfUI.api.SkinSlider then pfUI.api.SkinSlider(slider) end
   getglobal(slider:GetName() .. "Low"):SetText("0.05s")
-  getglobal(slider:GetName() .. "High"):SetText("1.50s")
+  getglobal(slider:GetName() .. "High"):SetText("0.50s")
+  local sliderText = getglobal(slider:GetName() .. "Text")
   slider:SetScript("OnValueChanged", function()
     if not DB then return end
     local val = floor(this:GetValue() * 100 + 0.5) / 100
     DB.interval = tostring(val)
-    delayLabel:SetText(string.format(T_("Vendor sell delay: %.2f seconds"), val))
+    if sliderText then sliderText:SetText(string.format("%.2fs", val)) end
   end)
 
   -- The list toggles double as the two side-by-side section subheaders.
-  local autoVendor = MakeCheckbox(slider, -24,
+  local autoVendor = MakeCheckbox(takeover, -32,
     T_("Auto-Vendor"), "autoVendor")
 
   local autoDelete = CreateFrame("CheckButton", nil, parent)
@@ -650,13 +649,16 @@ local function BuildComponentsPanel(parent)
   local vendorPool = {}
   local deletePool = {}
 
-  local function MakeRow(pool, rowParent, red)
+  local function MakeRow(pool, rowParent, greyName)
     local row = CreateFrame("Button", nil, rowParent)
     row:SetWidth(LIST_WIDTH - 4)
     row:SetHeight(18)
-    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.text:SetPoint("LEFT", row, "LEFT", 2, 0)
-    if red then row.text:SetTextColor(1, .4, .4) end
+
+    row.icon = row:CreateTexture(nil, "ARTWORK")
+    row.icon:SetWidth(14)
+    row.icon:SetHeight(14)
+    row.icon:SetPoint("LEFT", row, "LEFT", 2, 0)
+
     row.del = CreateFrame("Button", nil, row)
     row.del:SetWidth(16)
     row.del:SetHeight(16)
@@ -664,32 +666,38 @@ local function BuildComponentsPanel(parent)
     local x = row.del:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     x:SetPoint("CENTER", row.del, "CENTER", 0, 0)
     x:SetText("|cffff5555x|r")
+
+    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.text:SetPoint("LEFT", row.icon, "RIGHT", 4, 0)
+    row.text:SetPoint("RIGHT", row.del, "LEFT", -4, 0)
+    row.text:SetJustifyH("LEFT")
+    if greyName then row.text:SetTextColor(.62, .62, .62) end
+
     table.insert(pool, row)
     return row
   end
 
-  local function DisplayName(id, savedName)
-    local liveName = GetItemInfo(id)
+  local function DisplayInfo(id, savedName)
+    local liveName, _, _, _, _, _, _, _, _, texture = GetItemInfo(id)
     if liveName then
-      return liveName
+      return liveName, texture
     end
     if type(savedName) == "string" then
-      return savedName
+      return savedName, texture
     end
-    return string.format(T_("ID: %d"), id)
+    return string.format(T_("ID: %d"), id), texture
   end
 
   local function Refresh()
     if not DB then return end
 
     SetCheckboxChecked(takeover, Enabled("takeoverGreys"))
-    SetCheckboxChecked(autoGreys, Enabled("autoSellGreys"))
     SetCheckboxChecked(autoVendor, Enabled("autoVendor"))
     SetCheckboxChecked(autoDelete, Enabled("autoDelete"))
 
     local interval = GetInterval()
     slider:SetValue(interval)
-    delayLabel:SetText(string.format(T_("Vendor sell delay: %.2f seconds"), interval))
+    if sliderText then sliderText:SetText(string.format("%.2fs", interval)) end
 
     for _, row in ipairs(vendorPool) do row:Hide() end
     for _, row in ipairs(deletePool) do row:Hide() end
@@ -699,10 +707,11 @@ local function BuildComponentsPanel(parent)
       i = i + 1
       local idKey = tonumber(id) or id
       local row = vendorPool[i] or MakeRow(vendorPool, vendorChild, false)
-      local display = DisplayName(idKey, name)
+      local display, texture = DisplayInfo(idKey, name)
       if display and display ~= name then DB.vendorList[id] = display end
       row:ClearAllPoints()
       row:SetPoint("TOPLEFT", vendorChild, "TOPLEFT", 2, -2 - ((i - 1) * ROW_HEIGHT))
+      row.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
       row.text:SetText(display)
       row.del:SetScript("OnClick", function()
         DB.vendorList[idKey] = nil
@@ -719,10 +728,11 @@ local function BuildComponentsPanel(parent)
       i = i + 1
       local idKey = tonumber(id) or id
       local row = deletePool[i] or MakeRow(deletePool, deleteChild, true)
-      local display = DisplayName(idKey, name)
+      local display, texture = DisplayInfo(idKey, name)
       if display and display ~= name then DB.deleteList[id] = display end
       row:ClearAllPoints()
       row:SetPoint("TOPLEFT", deleteChild, "TOPLEFT", 2, -2 - ((i - 1) * ROW_HEIGHT))
+      row.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
       row.text:SetText(display)
       row.del:SetScript("OnClick", function()
         DB.deleteList[idKey] = nil
@@ -857,7 +867,7 @@ eventFrame:SetScript("OnEvent", function()
       HookPfUIVendorButton()
     end
 
-    local includeGreys = Enabled("takeoverGreys") and Enabled("autoSellGreys")
+    local includeGreys = Enabled("takeoverGreys")
     local includeCustom = Enabled("autoVendor")
 
     if includeGreys or includeCustom then

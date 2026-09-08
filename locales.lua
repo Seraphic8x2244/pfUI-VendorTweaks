@@ -11,9 +11,7 @@ if not pfUI_translation then return end
 
 local keys = {
   "Vendor Tweaks",
-  "Take over pfUI grey selling (throttled)",
-  "Auto-sell greys when merchant opens",
-  "Vendor sell delay: %.2f seconds",
+  "Throttle pfUI auto-sell",
   "Auto-Vendor",
   "Auto-Delete",
   "Drop item here to vendor",
