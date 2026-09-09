@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.21
+-- pfUI-VendorTweaks v0.1.22
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -720,15 +720,9 @@ local function BuildComponentsPanel(parent)
   end
 
   local function DisplayInfo(id)
-    local liveName, _, _, _, _, _, _, _, _, liveTexture = GetItemInfo(id)
-    if liveName or liveTexture then
-      CacheItemInfo(id, liveName, liveTexture)
-    end
-
     local item = DB.items and DB.items[id]
-    local name = liveName or (type(item) == "table" and item.name)
-    local texture = liveTexture or (type(item) == "table" and item.icon)
-
+    local name = type(item) == "table" and item.name or nil
+    local texture = type(item) == "table" and item.icon or nil
     return name or string.format(T_("ID: %d"), id), texture
   end
 
@@ -745,6 +739,56 @@ local function BuildComponentsPanel(parent)
 
     for _, row in ipairs(vendorPool) do row:Hide() end
     for _, row in ipairs(deletePool) do row:Hide() end
+
+    -- Resolve list artwork cheaply. Known VendorTweaks metadata wins immediately;
+    -- only incomplete entries query WoW's item cache. Anything still missing is
+    -- collected for one shared bag scan rather than scanning bags once per item.
+    local unresolved = {}
+    local checked = {}
+
+    local function ResolveListMetadata(list)
+      for id in pairs(list) do
+        local itemID = tonumber(id) or id
+        if not checked[itemID] then
+          checked[itemID] = true
+          local item = DB.items and DB.items[itemID]
+          local hasIcon = type(item) == "table" and item.icon
+
+          if not hasIcon then
+            local liveName, _, _, _, _, _, _, _, _, liveTexture = GetItemInfo(itemID)
+            if liveName or liveTexture then
+              CacheItemInfo(itemID, liveName, liveTexture)
+            end
+
+            item = DB.items and DB.items[itemID]
+            if not (type(item) == "table" and item.icon) then
+              unresolved[itemID] = true
+            end
+          end
+        end
+      end
+    end
+
+    ResolveListMetadata(DB.vendorList)
+    ResolveListMetadata(DB.deleteList)
+
+    if next(unresolved) then
+      for bag = 0, 4 do
+        local size = GetContainerNumSlots(bag) or 0
+        for slot = 1, size do
+          local bagLink = GetContainerItemLink(bag, slot)
+          local itemID = GetIDFromLink(bagLink)
+          if itemID and unresolved[itemID] then
+            local bagTexture = GetContainerItemInfo(bag, slot)
+            if bagTexture then
+              local bagName = GetItemInfo(bagLink or itemID)
+              CacheItemInfo(itemID, bagName, bagTexture)
+              unresolved[itemID] = nil
+            end
+          end
+        end
+      end
+    end
 
     local i = 0
     for id in pairs(DB.vendorList) do
