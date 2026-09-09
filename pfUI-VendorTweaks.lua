@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.22
+-- pfUI-VendorTweaks v0.1.23
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -384,7 +384,7 @@ local function BuildComponentsPanel(parent)
 
   local title = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -8)
-  title:SetText(T_("Vendor Tweaks"))
+  title:SetText(T_("VendorTweaks"))
 
   -- pfUI's modern checkbox skin builds its backdrop from child frames. A texture
   -- on the CheckButton itself can therefore render underneath that backdrop even
@@ -901,7 +901,7 @@ local function BuildComponentsPanel(parent)
 end
 
 if pfUI.gui and pfUI.gui.CreateGUIEntry then
-  pfUI.gui.CreateGUIEntry(T_("Thirdparty"), T_("Vendor Tweaks"), function()
+  pfUI.gui.CreateGUIEntry(T_("Thirdparty"), T_("VendorTweaks"), function()
     BuildComponentsPanel(this)
   end)
 end
