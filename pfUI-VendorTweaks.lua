@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.24
+-- pfUI-VendorTweaks v0.1.25
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -893,12 +893,39 @@ local function BuildComponentsPanel(parent)
     end
     UpdateIconRepairListener()
 
+    -- List membership stays as an ID-keyed map. Build a temporary display array
+    -- only when the panel refreshes so both columns are deterministic and
+    -- alphabetically sorted without adding any persistent ordering state.
+    local function BuildSortedRows(list)
+      local rows = {}
+      for id in pairs(list) do
+        local itemID = tonumber(id) or id
+        local display, texture = DisplayInfo(itemID)
+        table.insert(rows, {
+          id = itemID,
+          display = display,
+          texture = texture,
+          sortKey = string.lower(display or ""),
+        })
+      end
+
+      table.sort(rows, function(a, b)
+        if a.sortKey == b.sortKey then
+          return a.id < b.id
+        end
+        return a.sortKey < b.sortKey
+      end)
+
+      return rows
+    end
+
+    local vendorRows = BuildSortedRows(DB.vendorList)
     local i = 0
-    for id in pairs(DB.vendorList) do
+    for _, entry in ipairs(vendorRows) do
       i = i + 1
-      local idKey = tonumber(id) or id
+      local idKey = entry.id
       local row = vendorPool[i] or MakeRow(vendorPool, vendorChild, false)
-      local display, texture = DisplayInfo(idKey)
+      local display, texture = entry.display, entry.texture
       row:ClearAllPoints()
       row:SetPoint("TOPLEFT", vendorChild, "TOPLEFT", 2, -2 - ((i - 1) * ROW_HEIGHT))
       row.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
@@ -913,12 +940,13 @@ local function BuildComponentsPanel(parent)
     vendorChild:SetHeight(math.max(LIST_HEIGHT, 4 + (i * ROW_HEIGHT)))
     vendorScroll:SetVerticalScroll(math.min(vendorScroll:GetVerticalScroll(), math.max(0, vendorChild:GetHeight() - vendorScroll:GetHeight())))
 
+    local deleteRows = BuildSortedRows(DB.deleteList)
     i = 0
-    for id in pairs(DB.deleteList) do
+    for _, entry in ipairs(deleteRows) do
       i = i + 1
-      local idKey = tonumber(id) or id
+      local idKey = entry.id
       local row = deletePool[i] or MakeRow(deletePool, deleteChild, true)
-      local display, texture = DisplayInfo(idKey)
+      local display, texture = entry.display, entry.texture
       row:ClearAllPoints()
       row:SetPoint("TOPLEFT", deleteChild, "TOPLEFT", 2, -2 - ((i - 1) * ROW_HEIGHT))
       row.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
