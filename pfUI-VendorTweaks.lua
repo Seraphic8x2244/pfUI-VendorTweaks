@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.25
+-- pfUI-VendorTweaks v0.1.26
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -431,6 +431,88 @@ local pendingDeleteIDs = {}
 local deletePendingAt = nil
 local DELETE_DEBOUNCE = 0.20
 local DELETE_STEP_DELAY = 0.10
+
+-- -----------------------------------------------------------------------------
+-- Vendor-purchase Auto-Delete exemption
+-- Normal merchant purchases can emit the same self-acquisition loot messages
+-- that arm Auto-Delete. Track exact merchant item IDs at the purchase call and
+-- consume one short-lived exemption in CHAT_MSG_LOOT. This deliberately does
+-- not change the existing delete worker or its BAG_UPDATE safety path.
+-- -----------------------------------------------------------------------------
+local vendorPurchaseExemptions = {}
+local VENDOR_PURCHASE_EXEMPTION_TTL = 2.0
+local merchantPurchaseHooksInstalled = false
+local originalBuyMerchantItem = nil
+local originalPickupMerchantItem = nil
+
+local function MarkVendorPurchase(index)
+  if not DB or not Enabled("autoDelete") or not index then return end
+
+  local link = GetMerchantItemLink(index)
+  local id = GetIDFromLink(link)
+  if not id or not DB.deleteList[id] then return end
+
+  local now = GetTime()
+  local entry = vendorPurchaseExemptions[id]
+  if not entry or not entry.expires or entry.expires < now then
+    entry = { count = 0, expires = 0 }
+  end
+
+  entry.count = (entry.count or 0) + 1
+  entry.expires = now + VENDOR_PURCHASE_EXEMPTION_TTL
+  vendorPurchaseExemptions[id] = entry
+end
+
+local function ConsumeVendorPurchaseExemption(id)
+  local entry = id and vendorPurchaseExemptions[id]
+  if not entry then return false end
+
+  if not entry.expires or entry.expires < GetTime() then
+    vendorPurchaseExemptions[id] = nil
+    return false
+  end
+
+  local count = entry.count or 0
+  if count <= 0 then
+    vendorPurchaseExemptions[id] = nil
+    return false
+  end
+
+  count = count - 1
+  if count > 0 then
+    entry.count = count
+  else
+    vendorPurchaseExemptions[id] = nil
+  end
+  return true
+end
+
+local function InstallMerchantPurchaseHooks()
+  if merchantPurchaseHooksInstalled then return end
+  merchantPurchaseHooksInstalled = true
+
+  if type(BuyMerchantItem) == "function" then
+    originalBuyMerchantItem = BuyMerchantItem
+    BuyMerchantItem = function(index, quantity)
+      MarkVendorPurchase(index)
+      if quantity ~= nil then
+        return originalBuyMerchantItem(index, quantity)
+      end
+      return originalBuyMerchantItem(index)
+    end
+  end
+
+  if type(PickupMerchantItem) == "function" then
+    originalPickupMerchantItem = PickupMerchantItem
+    PickupMerchantItem = function(index)
+      -- With an occupied cursor this API is a sell path, not a purchase path.
+      if not CursorHasItem() then
+        MarkVendorPurchase(index)
+      end
+      return originalPickupMerchantItem(index)
+    end
+  end
+end
 local deleteWorker = CreateFrame("Frame", "pfVendorTweaksDeleteWorker", UIParent)
 deleteWorker:Hide()
 
@@ -1076,6 +1158,7 @@ eventFrame:SetScript("OnEvent", function()
     if not DB then InitDB() end
     ApplyGreyTakeover()
     InitializeIconRepair()
+    InstallMerchantPurchaseHooks()
 
   elseif event == "PLAYER_LOGOUT" then
     RestorePfUIVendorButton()
@@ -1099,12 +1182,15 @@ eventFrame:SetScript("OnEvent", function()
 
   elseif event == "MERCHANT_CLOSED" then
     CancelSellQueue()
+    vendorPurchaseExemptions = {}
 
   elseif event == "CHAT_MSG_LOOT" then
     if DB and Enabled("autoDelete") and arg1 and IsSelfLootMessage(arg1) then
       local id = GetIDFromLink(arg1)
       if id and DB.deleteList[id] then
-        pendingDeleteIDs[id] = true
+        if not ConsumeVendorPurchaseExemption(id) then
+          pendingDeleteIDs[id] = true
+        end
       end
     end
 
