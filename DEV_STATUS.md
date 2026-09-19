@@ -5,9 +5,11 @@
 - Test version: `0.1.27-dev1`
 - Base main version: `0.1.26`
 - Branched from: `e9b8c1a0fa6a5fffd0f23a21321f4945b0938024` — Exempt vendor purchases from Auto-Delete
-- Current dev HEAD before this status update: `efa3fcec9a9faecc8c25d87820177f5edadd0e89`
+- Current dev HEAD before this status update: `d6bd35b163588aebfc134b4dd7888f342d42454c`
 
 ## Latest dev commits
+- `d6bd35b163588aebfc134b4dd7888f342d42454c` — Remove temporary TGA compatibility workflow
+- `749b370128eeaa8441c9e647cc3d342ba0518da7` — Update VendorTweaks animation test handoff
 - `efa3fcec9a9faecc8c25d87820177f5edadd0e89` — Bump VendorTweaks dev test version
 - `431f2b84b2ff7ea1e3e3b96552b7582cddb2d81e` — Localise delete chat toggle
 - `13465e4122a0daccf2e9497c3478774020ffc477` — Add first VendorTweaks Bin animation
@@ -27,7 +29,7 @@
 - Existing Auto-Delete acquisition, BAG_UPDATE debounce, cursor verification, deletion safety and vendor-purchase exemption logic are otherwise unchanged.
 
 ## Untested in game
-- TGA render/alpha and sprite texture coordinates on the actual Vanilla 1.12.1 client.
+- TGA render/alpha and sprite texture coordinates on the actual Vanilla 1.12.1 client. The strip is 32-bit RGBA RLE TGA, 256x32; legacy WoW API documentation states RLE TGA is supported, but the actual client test remains authoritative.
 - Whether scaling 32px source frames to a 64px display is crisp enough; if soft, rebuild as native 64px frames.
 - Bin anchor registration/drag/scale/reset in both brues-code and Shagu pfUI.
 - 0.24-second timing and whether 8 frames look smooth enough.
