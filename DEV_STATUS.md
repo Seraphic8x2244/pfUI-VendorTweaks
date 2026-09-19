@@ -2,12 +2,15 @@
 
 ## Current state
 - Branch: `dev`
-- Test version: `0.1.27-dev1`
+- Test version: `0.1.27-dev2`
 - Base main version: `0.1.26`
 - Branched from: `e9b8c1a0fa6a5fffd0f23a21321f4945b0938024` — Exempt vendor purchases from Auto-Delete
 - Current dev HEAD before this status update: `d6bd35b163588aebfc134b4dd7888f342d42454c`
 
 ## Latest dev commits
+- `d445fe7fbac1c06cab94bdc8d9867f6e5c051b31` — Bump VendorTweaks dev test version
+- `165a2df82e17692f668ce8c1aa63b1fc94d385fa` — Keep VendorTweaks Bin movable visible
+- `d82673f23e1f3e55b023208b14b8aaf16921eac9` — Record VendorTweaks Bin unlock failure
 - `d6bd35b163588aebfc134b4dd7888f342d42454c` — Remove temporary TGA compatibility workflow
 - `749b370128eeaa8441c9e647cc3d342ba0518da7` — Update VendorTweaks animation test handoff
 - `efa3fcec9a9faecc8c25d87820177f5edadd0e89` — Bump VendorTweaks dev test version
@@ -21,6 +24,7 @@
 - Added per-character `Show delete message in chat` option, default ON.
 - Added translations for the new chat option to all supported VendorTweaks/pfUI locales.
 - Added `pfVendorTweaksBin` as a 64x64 pfUI movable; pfUI Unlock Mode controls move/scale/reset and the drag label is presented as `VendorTweaks Bin`.
+- `0.1.27-dev2`: keep the Bin frame shown-but-empty and mouse-disabled outside animation so pfUI forks that do not resurrect hidden movables can still expose its unlock dragger.
 - Added an 8-frame transparent burn-to-ash TGA sprite strip. Source frames are 32x32 and render in the 64x64 Bin for the first visual test.
 - Added a 0.24-second OnUpdate animation: 32x32 item icon underneath, burn sprite above, icon darkens/collapses as it burns.
 - Successful Auto-Delete starts/restarts the Bin animation with the deleted item's slot texture, then falls back through the shared item cache to the question-mark icon.
@@ -46,4 +50,4 @@
 - Polished/custom burn sound unless the stock Vanilla sound is unsatisfactory.
 
 ## Exact next step
-Fix the failed `0.1.27-dev1` Unlock Mode test by keeping the Bin anchor frame shown-but-empty outside animation, so pfUI forks do not need to resurrect a hidden movable. Bump the dev test version, then retest `VendorTweaks Bin` visibility/move/scale/reset/persistence before testing the deletion animation.
+Install/test `dev` `0.1.27-dev2` in Vanilla 1.12.1. Open pfUI Unlock Mode first: the 64x64 `VendorTweaks Bin` anchor should appear at UIParent CENTER, x=0, y=-120. Verify move, scale, middle-click reset and position persistence. Only once that passes, Auto-Delete one test item and assess the burn animation, sound, chat-toggle and rapid-repeat behaviour.
