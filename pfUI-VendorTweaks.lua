@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.27-dev1
+-- pfUI-VendorTweaks v0.1.27-dev2
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -543,7 +543,7 @@ binBurn:SetTexture("Interface\\AddOns\\pfUI-VendorTweaks\\vendor-tweaks-burn.tga
 binBurn:Hide()
 
 local BIN_FRAME_COUNT = 8
-local BIN_DURATION = 0.24
+local BIN_DURATION = 1.00
 local binElapsed = 0
 local binRunning = false
 local binFrameIndex = 0
@@ -596,7 +596,6 @@ local function PlayBinAnimation(id, texture)
   binFrame:Show()
 
   -- Stock Vanilla sound used by Blizzard's abandon/delete-style confirmation.
-  PlaySound("igQuestLogAbandonQuest")
 end
 
 binFrame:SetScript("OnUpdate", function()
