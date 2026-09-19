@@ -2,12 +2,15 @@
 
 ## Current state
 - Branch: `dev`
-- Test version: `0.1.27-dev7`
+- Test version: `0.1.27-dev8`
 - Base main version: `0.1.26`
 - Branched from: `e9b8c1a0fa6a5fffd0f23a21321f4945b0938024` — Exempt vendor purchases from Auto-Delete
-- Current dev HEAD before this status update: `079d06a04415ab30de1a7816879094dbc9345a51`
+- Current dev HEAD before this status update: `8aa20090351656b9099ee7cb07cc2f15f1f51912`
 
 ## Latest dev commits
+- `8aa20090351656b9099ee7cb07cc2f15f1f51912` — Bump VendorTweaks dev8 test version
+- `15c8da47ef8e4c8c1fded820a0e74c5ad41781ed` — Localise delete animation toggle
+- `ea5053917eff6161089873ce426b1abb2d743342` — Replace Bin test button with feedback toggles
 - `4896f51bd4f425efaef769a5ac8a315af8a82488` — Bump VendorTweaks dev7 test version
 - `ab04297794657be7a8aca783f35226cb30453db3` — Nudge Bin icon up slightly
 - `fe18981493b8942f4b5fde76dbfffb3212e417db` — Bump VendorTweaks dev6 test version
@@ -36,15 +39,16 @@
 
 ## Completed on dev
 - Existing Auto-Delete chat message preserved.
-- Added per-character `Show delete message in chat` option, default ON.
-- Added translations for the new chat option to all supported VendorTweaks/pfUI locales.
+- Added per-character `Show delete animation` and `Show delete message in chat` options, both default ON.
+- Added translations for both Auto-Delete feedback options to all supported VendorTweaks/pfUI locales.
 - Added `pfVendorTweaksBin` as a 64x64 pfUI movable; pfUI Unlock Mode controls move/scale/reset and the drag label is presented as `VendorTweaks Bin`.
 - Added an 8-frame transparent burn-to-ash TGA sprite strip. Source frames are 32x32 and render in the 64x64 Bin for the first visual test.
 - Added an OnUpdate animation: 32x32 item icon underneath and burn sprite above. `0.1.27-dev2` lengthens the duration from 0.24s to 1.00s; `0.1.27-dev3` chars the icon to black and wipes it from top to bottom.
 - Successful Auto-Delete starts/restarts the Bin animation with the deleted item's slot texture, then falls back through the shared item cache to the question-mark icon.
 - `0.1.27-dev1` test showed `igQuestLogAbandonQuest` is the quest-failed sound and unsuitable. `0.1.27-dev2` removes animation audio pending a better choice.
 - Rapid deletes replace/restart the active visual instead of queueing animation notifications.
-- `0.1.27-dev4` adds a localized `Test Bin Animation` options button. It replays the same Bin animation without deleting anything, using the first cached Auto-Delete icon when available and the question-mark icon otherwise.
+- `0.1.27-dev8` removes the temporary `Test Bin Animation` button and adds a per-character `Show delete animation` toggle, default ON.
+- `Show delete animation` and `Show delete message in chat` are stacked together directly below the Auto-Delete list as independent feedback controls.
 - Existing Auto-Delete acquisition, BAG_UPDATE debounce, cursor verification, deletion safety and vendor-purchase exemption logic are otherwise unchanged.
 
 ## In-game test findings
@@ -63,7 +67,7 @@
 - `0.1.27-dev7` icon placement after nudging its centre from y=-14 to y=-12 (with wipe bottom anchor adjusted from -30 to -28), plus blackening/top-down wipe timing.
 - Sound choice/volume.
 - Repeated rapid deletion visual behaviour.
-- New checkbox layout at all supported localisation widths.
+- `0.1.27-dev8` stacked Auto-Delete feedback checkbox layout at all supported localisation widths and toggle behavior in game.
 
 ## Deferred
 - Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so no heuristic matching.
@@ -71,4 +75,4 @@
 - Polished/custom burn sound unless the stock Vanilla sound is unsatisfactory.
 
 ## Exact next step
-Install/test `dev` `0.1.27-dev7`. Use `Test Bin Animation` repeatedly and verify the 2-UI-unit upward nudge places the icon correctly inside the flames. Then continue tuning the 1.00-second burn, blackening and top-to-bottom wipe. Audio remains intentionally disabled.
+Install/test `dev` `0.1.27-dev8`. Verify `Show delete animation` and `Show delete message in chat` appear stacked directly below the Auto-Delete list, both default ON, and can be toggled independently without affecting deletion itself. Confirm the final y=-12 icon placement on the next real Auto-Delete. Audio remains intentionally disabled.
