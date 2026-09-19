@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.26
+-- pfUI-VendorTweaks v0.1.27-dev1
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -25,6 +25,9 @@ local function InitDB()
   DB.autoSellGreys = nil
   if DB.autoVendor == nil then DB.autoVendor = "1" end
   if DB.autoDelete == nil then DB.autoDelete = "1" end
+  -- Keep the existing chat notification enabled by default; the new option
+  -- only lets the player suppress it when the visual Bin feedback is enough.
+  if DB.showDeleteChat == nil then DB.showDeleteChat = "1" end
   if type(DB.vendorList) ~= "table" then DB.vendorList = {} end
   if type(DB.deleteList) ~= "table" then DB.deleteList = {} end
   if type(DB.items) ~= "table" then DB.items = {} end
@@ -513,6 +516,131 @@ local function InstallMerchantPurchaseHooks()
     end
   end
 end
+
+-- -----------------------------------------------------------------------------
+-- VendorTweaks Bin
+-- A tiny visual acknowledgement for successful Auto-Delete actions. The frame
+-- is registered with pfUI's movable system, so pfUI Unlock Mode owns position,
+-- scale and reset behaviour exactly like native pfUI movable frames.
+-- -----------------------------------------------------------------------------
+local binFrame = CreateFrame("Frame", "pfVendorTweaksBin", UIParent)
+binFrame:SetWidth(64)
+binFrame:SetHeight(64)
+binFrame:SetPoint("CENTER", UIParent, "CENTER", 0, -120)
+binFrame:SetFrameStrata("HIGH")
+binFrame:EnableMouse(false)
+
+local binIcon = binFrame:CreateTexture(nil, "ARTWORK")
+binIcon:SetWidth(32)
+binIcon:SetHeight(32)
+binIcon:SetPoint("CENTER", binFrame, "CENTER", 0, -2)
+binIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+binIcon:Hide()
+
+local binBurn = binFrame:CreateTexture(nil, "OVERLAY")
+binBurn:SetAllPoints(binFrame)
+binBurn:SetTexture("Interface\\AddOns\\pfUI-VendorTweaks\\vendor-tweaks-burn.tga")
+binBurn:Hide()
+
+local BIN_FRAME_COUNT = 8
+local BIN_DURATION = 0.24
+local binElapsed = 0
+local binRunning = false
+local binFrameIndex = 0
+
+local function BinUnlockVisible()
+  return pfUI.unlock and pfUI.unlock.IsShown and pfUI.unlock:IsShown()
+end
+
+local function SetBinBurnFrame(index)
+  if index < 1 then index = 1 end
+  if index > BIN_FRAME_COUNT then index = BIN_FRAME_COUNT end
+  local left = (index - 1) / BIN_FRAME_COUNT
+  local right = index / BIN_FRAME_COUNT
+  binBurn:SetTexCoord(left, right, 0, 1)
+  binFrameIndex = index
+end
+
+local function ResetBinVisual()
+  binRunning = false
+  binElapsed = 0
+  binFrameIndex = 0
+  binIcon:SetAlpha(1)
+  binIcon:SetVertexColor(1, 1, 1, 1)
+  binIcon:SetWidth(32)
+  binIcon:SetHeight(32)
+  binIcon:Hide()
+  binBurn:Hide()
+  if not BinUnlockVisible() then
+    binFrame:Hide()
+  end
+end
+
+local function PlayBinAnimation(id, texture)
+  local cached = DB and DB.items and DB.items[id]
+  local cachedTexture = type(cached) == "table" and cached.icon or nil
+
+  binElapsed = 0
+  binRunning = true
+  binFrameIndex = 0
+
+  binIcon:SetTexture(texture or cachedTexture or "Interface\\Icons\\INV_Misc_QuestionMark")
+  binIcon:SetAlpha(1)
+  binIcon:SetVertexColor(1, 1, 1, 1)
+  binIcon:SetWidth(32)
+  binIcon:SetHeight(32)
+  binIcon:Show()
+
+  SetBinBurnFrame(1)
+  binBurn:Show()
+  binFrame:Show()
+
+  -- Stock Vanilla sound used by Blizzard's abandon/delete-style confirmation.
+  PlaySound("igQuestLogAbandonQuest")
+end
+
+binFrame:SetScript("OnUpdate", function()
+  -- pfUI creates the dragger lazily the first time Unlock Mode is opened.
+  -- Replace its compact frame-name label with the human-facing anchor name.
+  if BinUnlockVisible() and this.drag and this.drag.text then
+    this.drag.text:SetText("VendorTweaks Bin")
+  end
+
+  if not binRunning then return end
+
+  binElapsed = binElapsed + arg1
+  local progress = binElapsed / BIN_DURATION
+  if progress >= 1 then
+    ResetBinVisual()
+    return
+  end
+
+  local frame = math.floor(progress * BIN_FRAME_COUNT) + 1
+  if frame ~= binFrameIndex then
+    SetBinBurnFrame(frame)
+  end
+
+  -- Leave the item readable for the opening beat, then darken and collapse it
+  -- behind the fire. This is intentionally simple for the first 8-frame test.
+  if frame <= 3 then
+    binIcon:SetAlpha(1)
+    binIcon:SetVertexColor(1, 1, 1, 1)
+    binIcon:SetHeight(32)
+  else
+    local burn = (frame - 3) / 5
+    local remain = 1 - burn
+    if remain < 0 then remain = 0 end
+    binIcon:SetAlpha(remain)
+    binIcon:SetVertexColor(1 - (.65 * burn), 1 - (.72 * burn), 1 - (.78 * burn), 1)
+    binIcon:SetHeight(math.max(4, 32 * remain))
+  end
+end)
+
+if pfUI.api and pfUI.api.UpdateMovable then
+  pfUI.api.UpdateMovable(binFrame)
+end
+binFrame:Hide()
+
 local deleteWorker = CreateFrame("Frame", "pfVendorTweaksDeleteWorker", UIParent)
 deleteWorker:Hide()
 
@@ -538,7 +666,7 @@ local function ExecuteSafeDeleteStep()
       local id = GetIDFromLink(link)
 
       if id and pendingDeleteIDs[id] and DB.deleteList[id] then
-        local _, _, locked = GetContainerItemInfo(bag, slot)
+        local slotTexture, _, locked = GetContainerItemInfo(bag, slot)
         if locked then
           StopDeleteWorker(true)
           return
@@ -554,7 +682,10 @@ local function ExecuteSafeDeleteStep()
         end
 
         DeleteCursorItem()
-        DEFAULT_CHAT_FRAME:AddMessage("|cffff3333[VendorTweaks]|r " .. string.format(T_("Deleted: %s"), link))
+        PlayBinAnimation(id, slotTexture)
+        if Enabled("showDeleteChat") then
+          DEFAULT_CHAT_FRAME:AddMessage("|cffff3333[VendorTweaks]|r " .. string.format(T_("Deleted: %s"), link))
+        end
 
         -- Let the server settle this deletion before looking for another stack.
         deletePendingAt = GetTime() + DELETE_STEP_DELAY
@@ -798,6 +929,11 @@ local function BuildComponentsPanel(parent)
   local vendorScroll, vendorChild = MakeListScroll(vendorDrop)
   local deleteScroll, deleteChild = MakeListScroll(deleteDrop)
 
+  -- Keep legacy chat feedback available, but let the Bin animation replace it
+  -- for players who prefer a quiet chat frame.
+  local showDeleteChat = MakeCheckbox(deleteScroll, -10,
+    T_("Show delete message in chat"), "showDeleteChat")
+
   -- Vanilla 1.12 has no AnimationGroup API. Keep the entire flourish on
   -- the already-working drop button itself: this avoids extra frames, strata,
   -- coordinate conversion, and any chance of the animation intercepting input.
@@ -932,6 +1068,7 @@ local function BuildComponentsPanel(parent)
     SetCheckboxChecked(takeover, Enabled("takeoverGreys"))
     SetCheckboxChecked(autoVendor, Enabled("autoVendor"))
     SetCheckboxChecked(autoDelete, Enabled("autoDelete"))
+    SetCheckboxChecked(showDeleteChat, Enabled("showDeleteChat"))
 
     local interval = GetInterval()
     slider:SetValue(interval)
