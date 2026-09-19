@@ -2,12 +2,14 @@
 
 ## Current state
 - Branch: `dev`
-- Test version: `0.1.27-dev2`
+- Test version: `0.1.27-dev3`
 - Base main version: `0.1.26`
 - Branched from: `e9b8c1a0fa6a5fffd0f23a21321f4945b0938024` — Exempt vendor purchases from Auto-Delete
 - Current dev HEAD before this status update: `ae842b0024acefd039c58b77259168d10a50caec`
 
 ## Latest dev commits
+- `78b320b4c6eacb71fdbee192cf334e4c3efa363d` — Bump VendorTweaks dev3 test version
+- `8ed7b269b4fbe73152753e95356b7e8ae0b28b6d` — Make Bin icon char black with top-down wipe
 - `9ee1eecad9011c8c99e88c3de6abc6dba60f1cbd` — Bump VendorTweaks dev test version
 - `9032770e9a2adc1c2b1c597de1cf8c8f62ab9beb` — Slow Bin animation and remove quest-failed sound
 - `ae842b0024acefd039c58b77259168d10a50caec` — Restore VendorTweaks dev1 test version
@@ -36,6 +38,7 @@
 - Existing Auto-Delete acquisition, BAG_UPDATE debounce, cursor verification, deletion safety and vendor-purchase exemption logic are otherwise unchanged.
 
 ## In-game test findings
+- `0.1.27-dev2`: icon did not reach black and disappeared by shrinking vertically toward its centre; desired effect is a top-to-bottom wipe.
 - `0.1.27-dev1`: `VendorTweaks Bin` appears correctly in pfUI Unlock Mode on the user's setup. Original movable registration is valid; previous missing-anchor report was caused by testing `main` instead of `dev`.
 - `0.1.27-dev1`: burn animation at 0.24s is far too fast.
 - `0.1.27-dev1`: `igQuestLogAbandonQuest` plays the quest-failed sound and is the wrong audio cue.
@@ -44,7 +47,7 @@
 - TGA render/alpha and sprite texture coordinates on the actual Vanilla 1.12.1 client. The strip is 32-bit RGBA RLE TGA, 256x32; legacy WoW API documentation states RLE TGA is supported, but the actual client test remains authoritative.
 - Whether scaling 32px source frames to a 64px display is crisp enough; if soft, rebuild as native 64px frames.
 - Bin drag/scale/reset and saved-position persistence on the user's pfUI setup; cross-fork behaviour remains untested.
-- 1.00-second timing and whether 8 frames look smooth enough.
+- `0.1.27-dev3` 1.00-second timing, whether the icon now visibly chars to black, and whether the top-to-bottom wipe reads correctly.
 - Sound choice/volume.
 - Repeated rapid deletion visual behaviour.
 - New checkbox layout at all supported localisation widths.
@@ -55,4 +58,4 @@
 - Polished/custom burn sound unless the stock Vanilla sound is unsatisfactory.
 
 ## Exact next step
-Install/test `dev` `0.1.27-dev1` in Vanilla 1.12.1. Previous missing-anchor report was from accidentally testing `main`, so no `dev1` unlock failure has been established. Install/test `dev` `0.1.27-dev2`. Auto-Delete one test item and judge the 1.00-second burn timing, 8-frame smoothness, fire alpha/size and icon disintegration. Audio is intentionally disabled for this pass. Also verify move/scale/reset/persistence, chat-toggle and rapid-repeat behaviour when convenient.
+Install/test `dev` `0.1.27-dev1` in Vanilla 1.12.1. Previous missing-anchor report was from accidentally testing `main`, so no `dev1` unlock failure has been established. Install/test `dev` `0.1.27-dev3`. Auto-Delete one test item and verify the icon visibly chars to black and wipes away from top to bottom with its bottom edge fixed. Keep judging the 1.00-second overall timing and fire sprite alongside it. Audio remains intentionally disabled for this pass.
