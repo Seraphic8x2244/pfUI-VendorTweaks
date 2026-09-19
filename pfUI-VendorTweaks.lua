@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.27-dev3
+-- pfUI-VendorTweaks v0.1.27-dev4
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -951,6 +951,29 @@ local function BuildComponentsPanel(parent)
   -- for players who prefer a quiet chat frame.
   local showDeleteChat = MakeCheckbox(deleteScroll, -10,
     T_("Show delete message in chat"), "showDeleteChat")
+
+  local testBin = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+  testBin:SetWidth(145)
+  testBin:SetHeight(22)
+  testBin:SetPoint("TOPLEFT", showDeleteChat, "BOTTOMLEFT", 0, -8)
+  testBin:SetText(T_("Test Bin Animation"))
+  if pfUI.api and pfUI.api.SkinButton then pfUI.api.SkinButton(testBin) end
+  testBin:SetScript("OnClick", function()
+    local texture = "Interface\\Icons\\INV_Misc_QuestionMark"
+
+    if DB and DB.deleteList and DB.items then
+      for id in pairs(DB.deleteList) do
+        local itemID = tonumber(id) or id
+        local item = DB.items[itemID]
+        if type(item) == "table" and item.icon then
+          texture = item.icon
+          break
+        end
+      end
+    end
+
+    PlayBinAnimation(nil, texture)
+  end)
 
   -- Vanilla 1.12 has no AnimationGroup API. Keep the entire flourish on
   -- the already-working drop button itself: this avoids extra frames, strata,
