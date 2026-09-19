@@ -28,6 +28,9 @@
 - Rapid deletes replace/restart the active visual instead of queueing animation notifications.
 - Existing Auto-Delete acquisition, BAG_UPDATE debounce, cursor verification, deletion safety and vendor-purchase exemption logic are otherwise unchanged.
 
+## In-game test findings
+- `0.1.27-dev1`: `VendorTweaks Bin` does not appear in pfUI Unlock Mode at its default anchor. Default code position is UIParent CENTER, x=0, y=-120, size 64x64, so this is being treated as a movable visibility/registration compatibility failure rather than an off-screen-position issue.
+
 ## Untested in game
 - TGA render/alpha and sprite texture coordinates on the actual Vanilla 1.12.1 client. The strip is 32-bit RGBA RLE TGA, 256x32; legacy WoW API documentation states RLE TGA is supported, but the actual client test remains authoritative.
 - Whether scaling 32px source frames to a 64px display is crisp enough; if soft, rebuild as native 64px frames.
@@ -43,4 +46,4 @@
 - Polished/custom burn sound unless the stock Vanilla sound is unsatisfactory.
 
 ## Exact next step
-Install/test `dev` `0.1.27-dev1` in Vanilla 1.12.1. First verify pfUI Unlock Mode exposes `VendorTweaks Bin` and persists its position. Then Auto-Delete one test item and assess fire alpha, 8-frame smoothness, icon readability/disintegration, sound, chat-toggle behaviour, and rapid-repeat behaviour before changing the animation.
+Fix the failed `0.1.27-dev1` Unlock Mode test by keeping the Bin anchor frame shown-but-empty outside animation, so pfUI forks do not need to resurrect a hidden movable. Bump the dev test version, then retest `VendorTweaks Bin` visibility/move/scale/reset/persistence before testing the deletion animation.
