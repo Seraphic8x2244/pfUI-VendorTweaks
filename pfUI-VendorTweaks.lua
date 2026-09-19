@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.27-dev8
+-- pfUI-VendorTweaks v0.1.27-dev9
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -851,6 +851,16 @@ local function BuildComponentsPanel(parent)
     end
   end)
 
+  -- Keep Auto-Delete feedback controls between the feature toggle and its
+  -- drop target so they sit outside the list scroll frame and remain clickable.
+  local showDeleteAnimation = MakeCheckbox(autoDelete, -2,
+    T_("Show delete animation"), "showDeleteAnimation", function()
+      if not Enabled("showDeleteAnimation") then ResetBinVisual() end
+    end)
+
+  local showDeleteChat = MakeCheckbox(showDeleteAnimation, -2,
+    T_("Show delete message in chat"), "showDeleteChat")
+
   local function SetDropHighlight(frame, shown)
     if not frame or not frame.goldBorder then return end
     for _, tex in ipairs(frame.goldBorder) do
@@ -915,7 +925,7 @@ local function BuildComponentsPanel(parent)
   end
 
   local vendorDrop = MakeDropSlot(autoVendor, T_("Drop item here to vendor"))
-  local deleteDrop = MakeDropSlot(autoDelete, T_("Drop item here to delete"))
+  local deleteDrop = MakeDropSlot(showDeleteChat, T_("Drop item here to delete"))
 
   local LIST_WIDTH = 195
   local LIST_HEIGHT = 190
@@ -947,16 +957,6 @@ local function BuildComponentsPanel(parent)
 
   local vendorScroll, vendorChild = MakeListScroll(vendorDrop)
   local deleteScroll, deleteChild = MakeListScroll(deleteDrop)
-
-  -- Auto-Delete feedback controls live together directly below the delete list.
-  -- Both are independent of deletion itself and default to enabled.
-  local showDeleteAnimation = MakeCheckbox(deleteScroll, -10,
-    T_("Show delete animation"), "showDeleteAnimation", function()
-      if not Enabled("showDeleteAnimation") then ResetBinVisual() end
-    end)
-
-  local showDeleteChat = MakeCheckbox(showDeleteAnimation, -2,
-    T_("Show delete message in chat"), "showDeleteChat")
 
   -- Vanilla 1.12 has no AnimationGroup API. Keep the entire flourish on
   -- the already-working drop button itself: this avoids extra frames, strata,
