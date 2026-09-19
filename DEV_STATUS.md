@@ -33,10 +33,13 @@
 - Rapid deletes replace/restart the active visual instead of queueing animation notifications.
 - Existing Auto-Delete acquisition, BAG_UPDATE debounce, cursor verification, deletion safety and vendor-purchase exemption logic are otherwise unchanged.
 
+## In-game test findings
+- `0.1.27-dev1`: `VendorTweaks Bin` appears correctly in pfUI Unlock Mode on the user's setup. Original movable registration is valid; previous missing-anchor report was caused by testing `main` instead of `dev`.
+
 ## Untested in game
 - TGA render/alpha and sprite texture coordinates on the actual Vanilla 1.12.1 client. The strip is 32-bit RGBA RLE TGA, 256x32; legacy WoW API documentation states RLE TGA is supported, but the actual client test remains authoritative.
 - Whether scaling 32px source frames to a 64px display is crisp enough; if soft, rebuild as native 64px frames.
-- Bin anchor registration/drag/scale/reset in both brues-code and Shagu pfUI.
+- Bin drag/scale/reset and saved-position persistence on the user's pfUI setup; cross-fork behaviour remains untested.
 - 0.24-second timing and whether 8 frames look smooth enough.
 - Sound choice/volume.
 - Repeated rapid deletion visual behaviour.
@@ -48,4 +51,4 @@
 - Polished/custom burn sound unless the stock Vanilla sound is unsatisfactory.
 
 ## Exact next step
-Install/test `dev` `0.1.27-dev1` in Vanilla 1.12.1. Previous missing-anchor report was from accidentally testing `main`, so no `dev1` unlock failure has been established. Open pfUI Unlock Mode first: the 64x64 `VendorTweaks Bin` anchor should appear at UIParent CENTER, x=0, y=-120. Verify move, scale, middle-click reset and position persistence. Then Auto-Delete one test item and assess the burn animation, sound, chat-toggle and rapid-repeat behaviour.
+Install/test `dev` `0.1.27-dev1` in Vanilla 1.12.1. Previous missing-anchor report was from accidentally testing `main`, so no `dev1` unlock failure has been established. `VendorTweaks Bin` visibility in pfUI Unlock Mode is confirmed. Verify move, scale, middle-click reset and position persistence. Then Auto-Delete one test item and assess the burn animation, sound, chat-toggle and rapid-repeat behaviour.
