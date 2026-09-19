@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.27-dev1
+-- pfUI-VendorTweaks v0.1.27-dev2
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -571,9 +571,6 @@ local function ResetBinVisual()
   binIcon:SetHeight(32)
   binIcon:Hide()
   binBurn:Hide()
-  if not BinUnlockVisible() then
-    binFrame:Hide()
-  end
 end
 
 local function PlayBinAnimation(id, texture)
@@ -639,7 +636,12 @@ end)
 if pfUI.api and pfUI.api.UpdateMovable then
   pfUI.api.UpdateMovable(binFrame)
 end
-binFrame:Hide()
+
+-- Keep the movable itself shown at all times. It has no persistent artwork and
+-- is mouse-disabled, so it is invisible/inert during normal play. Some pfUI
+-- forks do not expose hidden movables in Unlock Mode; leaving this empty frame
+-- shown lets their unlock dragger discover it without affecting gameplay.
+binFrame:Show()
 
 local deleteWorker = CreateFrame("Frame", "pfVendorTweaksDeleteWorker", UIParent)
 deleteWorker:Hide()
