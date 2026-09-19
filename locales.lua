@@ -20,6 +20,7 @@ local translations = {
     ["Item #%d"] = "Item #%d",
     ["ID: %d"] = "ID: %d",
     ["Show delete message in chat"] = "Show delete message in chat",
+    ["Test Bin Animation"] = "Test Bin Animation",
     ["Deleted: %s"] = "Deleted: %s",
   },
 
@@ -33,6 +34,7 @@ local translations = {
     ["Item #%d"] = "Gegenstand #%d",
     ["ID: %d"] = "ID: %d",
     ["Show delete message in chat"] = "Löschmeldung im Chat anzeigen",
+    ["Test Bin Animation"] = "Papierkorb-Animation testen",
     ["Deleted: %s"] = "Gelöscht: %s",
   },
 
@@ -46,6 +48,7 @@ local translations = {
     ["Item #%d"] = "Objeto #%d",
     ["ID: %d"] = "ID: %d",
     ["Show delete message in chat"] = "Mostrar mensaje de borrado en el chat",
+    ["Test Bin Animation"] = "Probar animación de la papelera",
     ["Deleted: %s"] = "Eliminado: %s",
   },
 
@@ -59,6 +62,7 @@ local translations = {
     ["Item #%d"] = "Objet n°%d",
     ["ID: %d"] = "ID : %d",
     ["Show delete message in chat"] = "Afficher le message de suppression dans le chat",
+    ["Test Bin Animation"] = "Tester l’animation de la corbeille",
     ["Deleted: %s"] = "Supprimé : %s",
   },
 
@@ -72,6 +76,7 @@ local translations = {
     ["Item #%d"] = "아이템 #%d",
     ["ID: %d"] = "ID: %d",
     ["Show delete message in chat"] = "채팅에 삭제 메시지 표시",
+    ["Test Bin Animation"] = "휴지통 애니메이션 테스트",
     ["Deleted: %s"] = "삭제됨: %s",
   },
 
@@ -85,6 +90,7 @@ local translations = {
     ["Item #%d"] = "Предмет #%d",
     ["ID: %d"] = "ID: %d",
     ["Show delete message in chat"] = "Показывать сообщение об удалении в чате",
+    ["Test Bin Animation"] = "Проверить анимацию корзины",
     ["Deleted: %s"] = "Удалено: %s",
   },
 
@@ -98,6 +104,7 @@ local translations = {
     ["Item #%d"] = "物品 #%d",
     ["ID: %d"] = "ID: %d",
     ["Show delete message in chat"] = "在聊天中显示删除消息",
+    ["Test Bin Animation"] = "测试垃圾桶动画",
     ["Deleted: %s"] = "已删除：%s",
   },
 
@@ -111,6 +118,7 @@ local translations = {
     ["Item #%d"] = "物品 #%d",
     ["ID: %d"] = "ID: %d",
     ["Show delete message in chat"] = "在聊天中顯示刪除訊息",
+    ["Test Bin Animation"] = "測試垃圾桶動畫",
     ["Deleted: %s"] = "已刪除：%s",
   },
 }
