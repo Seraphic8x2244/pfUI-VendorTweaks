@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.27-dev2
+-- pfUI-VendorTweaks v0.1.27-dev3
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -567,6 +567,9 @@ local function ResetBinVisual()
   binFrameIndex = 0
   binIcon:SetAlpha(1)
   binIcon:SetVertexColor(1, 1, 1, 1)
+  binIcon:SetTexCoord(0, 1, 0, 1)
+  binIcon:ClearAllPoints()
+  binIcon:SetPoint("CENTER", binFrame, "CENTER", 0, -2)
   binIcon:SetWidth(32)
   binIcon:SetHeight(32)
   binIcon:Hide()
@@ -587,6 +590,9 @@ local function PlayBinAnimation(id, texture)
   binIcon:SetTexture(texture or cachedTexture or "Interface\\Icons\\INV_Misc_QuestionMark")
   binIcon:SetAlpha(1)
   binIcon:SetVertexColor(1, 1, 1, 1)
+  binIcon:SetTexCoord(0, 1, 0, 1)
+  binIcon:ClearAllPoints()
+  binIcon:SetPoint("CENTER", binFrame, "CENTER", 0, -2)
   binIcon:SetWidth(32)
   binIcon:SetHeight(32)
   binIcon:Show()
@@ -595,7 +601,6 @@ local function PlayBinAnimation(id, texture)
   binBurn:Show()
   binFrame:Show()
 
-  -- Stock Vanilla sound used by Blizzard's abandon/delete-style confirmation.
 end
 
 binFrame:SetScript("OnUpdate", function()
@@ -619,19 +624,33 @@ binFrame:SetScript("OnUpdate", function()
     SetBinBurnFrame(frame)
   end
 
-  -- Leave the item readable for the opening beat, then darken and collapse it
-  -- behind the fire. This is intentionally simple for the first 8-frame test.
-  if frame <= 3 then
+  -- Leave the item readable for the opening beat. During the burn phase,
+  -- char it fully to black and wipe it away from top to bottom. The bottom
+  -- edge stays fixed so the disappearance travels downward instead of
+  -- collapsing toward the texture centre.
+  local burnStart = 3 / BIN_FRAME_COUNT
+  if progress <= burnStart then
     binIcon:SetAlpha(1)
     binIcon:SetVertexColor(1, 1, 1, 1)
+    binIcon:SetTexCoord(0, 1, 0, 1)
+    binIcon:ClearAllPoints()
+    binIcon:SetPoint("CENTER", binFrame, "CENTER", 0, -2)
     binIcon:SetHeight(32)
   else
-    local burn = (frame - 3) / 5
+    local burn = (progress - burnStart) / (1 - burnStart)
+    if burn > 1 then burn = 1 end
+
     local remain = 1 - burn
-    if remain < 0 then remain = 0 end
-    binIcon:SetAlpha(remain)
-    binIcon:SetVertexColor(1 - (.65 * burn), 1 - (.72 * burn), 1 - (.78 * burn), 1)
-    binIcon:SetHeight(math.max(4, 32 * remain))
+    local char = burn * 1.75
+    if char > 1 then char = 1 end
+    local shade = 1 - char
+
+    binIcon:SetAlpha(1)
+    binIcon:SetVertexColor(shade, shade, shade, 1)
+    binIcon:SetTexCoord(0, 1, burn, 1)
+    binIcon:ClearAllPoints()
+    binIcon:SetPoint("BOTTOM", binFrame, "CENTER", 0, -18)
+    binIcon:SetHeight(math.max(0.5, 32 * remain))
   end
 end)
 
