@@ -19,6 +19,7 @@ local translations = {
     ["Drop item here to delete"] = "Drop item here to delete",
     ["Item #%d"] = "Item #%d",
     ["ID: %d"] = "ID: %d",
+    ["Show delete message in chat"] = "Show delete message in chat",
     ["Deleted: %s"] = "Deleted: %s",
   },
 
@@ -31,6 +32,7 @@ local translations = {
     ["Drop item here to delete"] = "Hier zum Löschen ablegen",
     ["Item #%d"] = "Gegenstand #%d",
     ["ID: %d"] = "ID: %d",
+    ["Show delete message in chat"] = "Löschmeldung im Chat anzeigen",
     ["Deleted: %s"] = "Gelöscht: %s",
   },
 
@@ -43,6 +45,7 @@ local translations = {
     ["Drop item here to delete"] = "Suelta aquí para borrar",
     ["Item #%d"] = "Objeto #%d",
     ["ID: %d"] = "ID: %d",
+    ["Show delete message in chat"] = "Mostrar mensaje de borrado en el chat",
     ["Deleted: %s"] = "Eliminado: %s",
   },
 
@@ -55,6 +58,7 @@ local translations = {
     ["Drop item here to delete"] = "Déposer ici pour supprimer",
     ["Item #%d"] = "Objet n°%d",
     ["ID: %d"] = "ID : %d",
+    ["Show delete message in chat"] = "Afficher le message de suppression dans le chat",
     ["Deleted: %s"] = "Supprimé : %s",
   },
 
@@ -67,6 +71,7 @@ local translations = {
     ["Drop item here to delete"] = "삭제할 아이템 놓기",
     ["Item #%d"] = "아이템 #%d",
     ["ID: %d"] = "ID: %d",
+    ["Show delete message in chat"] = "채팅에 삭제 메시지 표시",
     ["Deleted: %s"] = "삭제됨: %s",
   },
 
@@ -79,6 +84,7 @@ local translations = {
     ["Drop item here to delete"] = "Сюда для удаления",
     ["Item #%d"] = "Предмет #%d",
     ["ID: %d"] = "ID: %d",
+    ["Show delete message in chat"] = "Показывать сообщение об удалении в чате",
     ["Deleted: %s"] = "Удалено: %s",
   },
 
@@ -91,6 +97,7 @@ local translations = {
     ["Drop item here to delete"] = "拖放物品到此删除",
     ["Item #%d"] = "物品 #%d",
     ["ID: %d"] = "ID: %d",
+    ["Show delete message in chat"] = "在聊天中显示删除消息",
     ["Deleted: %s"] = "已删除：%s",
   },
 
@@ -103,6 +110,7 @@ local translations = {
     ["Drop item here to delete"] = "拖放物品到此刪除",
     ["Item #%d"] = "物品 #%d",
     ["ID: %d"] = "ID: %d",
+    ["Show delete message in chat"] = "在聊天中顯示刪除訊息",
     ["Deleted: %s"] = "已刪除：%s",
   },
 }
