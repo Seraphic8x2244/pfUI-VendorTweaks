@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.27-dev7
+-- pfUI-VendorTweaks v0.1.27-dev8
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -25,8 +25,7 @@ local function InitDB()
   DB.autoSellGreys = nil
   if DB.autoVendor == nil then DB.autoVendor = "1" end
   if DB.autoDelete == nil then DB.autoDelete = "1" end
-  -- Keep the existing chat notification enabled by default; the new option
-  -- only lets the player suppress it when the visual Bin feedback is enough.
+  if DB.showDeleteAnimation == nil then DB.showDeleteAnimation = "1" end
   if DB.showDeleteChat == nil then DB.showDeleteChat = "1" end
   if type(DB.vendorList) ~= "table" then DB.vendorList = {} end
   if type(DB.deleteList) ~= "table" then DB.deleteList = {} end
@@ -700,7 +699,9 @@ local function ExecuteSafeDeleteStep()
         end
 
         DeleteCursorItem()
-        PlayBinAnimation(id, slotTexture)
+        if Enabled("showDeleteAnimation") then
+          PlayBinAnimation(id, slotTexture)
+        end
         if Enabled("showDeleteChat") then
           DEFAULT_CHAT_FRAME:AddMessage("|cffff3333[VendorTweaks]|r " .. string.format(T_("Deleted: %s"), link))
         end
@@ -947,33 +948,15 @@ local function BuildComponentsPanel(parent)
   local vendorScroll, vendorChild = MakeListScroll(vendorDrop)
   local deleteScroll, deleteChild = MakeListScroll(deleteDrop)
 
-  -- Keep legacy chat feedback available, but let the Bin animation replace it
-  -- for players who prefer a quiet chat frame.
-  local showDeleteChat = MakeCheckbox(deleteScroll, -10,
+  -- Auto-Delete feedback controls live together directly below the delete list.
+  -- Both are independent of deletion itself and default to enabled.
+  local showDeleteAnimation = MakeCheckbox(deleteScroll, -10,
+    T_("Show delete animation"), "showDeleteAnimation", function()
+      if not Enabled("showDeleteAnimation") then ResetBinVisual() end
+    end)
+
+  local showDeleteChat = MakeCheckbox(showDeleteAnimation, -2,
     T_("Show delete message in chat"), "showDeleteChat")
-
-  local testBin = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  testBin:SetWidth(145)
-  testBin:SetHeight(22)
-  testBin:SetPoint("TOPLEFT", showDeleteChat, "BOTTOMLEFT", 0, -8)
-  testBin:SetText(T_("Test Bin Animation"))
-  if pfUI.api and pfUI.api.SkinButton then pfUI.api.SkinButton(testBin) end
-  testBin:SetScript("OnClick", function()
-    local texture = "Interface\\Icons\\INV_Misc_QuestionMark"
-
-    if DB and DB.deleteList and DB.items then
-      for id in pairs(DB.deleteList) do
-        local itemID = tonumber(id) or id
-        local item = DB.items[itemID]
-        if type(item) == "table" and item.icon then
-          texture = item.icon
-          break
-        end
-      end
-    end
-
-    PlayBinAnimation(nil, texture)
-  end)
 
   -- Vanilla 1.12 has no AnimationGroup API. Keep the entire flourish on
   -- the already-working drop button itself: this avoids extra frames, strata,
@@ -1109,6 +1092,7 @@ local function BuildComponentsPanel(parent)
     SetCheckboxChecked(takeover, Enabled("takeoverGreys"))
     SetCheckboxChecked(autoVendor, Enabled("autoVendor"))
     SetCheckboxChecked(autoDelete, Enabled("autoDelete"))
+    SetCheckboxChecked(showDeleteAnimation, Enabled("showDeleteAnimation"))
     SetCheckboxChecked(showDeleteChat, Enabled("showDeleteChat"))
 
     local interval = GetInterval()
