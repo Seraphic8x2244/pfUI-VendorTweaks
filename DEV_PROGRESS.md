@@ -3,10 +3,14 @@
 ## Current
 - Branch: `dev`
 - Version: `0.1.27-dev`
-- Goal: Normalize all technical identifiers to `pfUI_VendorTweaks` and add the first dev-only `Debug.lua` burn-position tuning panel.
+- Goal: In-game test the normalized `pfUI_VendorTweaks` addon and the first dev-only burn-position tuning panel.
 - Workflow: Migrated to the canonical `VanillaTemplate` development contract.
 
 ## Recent Commits
+- `43819d4a49740358d02ddbfc6c81de4e6ea2d148` — Normalize `pfUI_VendorTweaks` burn asset name.
+- `5a8c43adc38e25d3a353cbe243fde53e98705342` — Add/localise burn debug controls and corrected TOC paths.
+- `e153d1abe3e47a5b9d9f6deddcd03f29be2f869d` — Normalize identifiers and add burn debug controls.
+- `63d3a5217861f23cfe02882c62f2487262c4bb1a` — Record identifier and `Debug.lua` work.
 - `64dd0f970ecab165a86f116e496c3581c616d391` — Complete `pfUI VendorTweaks` locale branding rename.
 - `146a119e901442aa7ee3267f86678788ff329ca9` — Rename addon-list title to `pfUI VendorTweaks-dev`.
 - `b9389ea81ef4d3573b1cc28dacb30468f502bb50` — Rename runtime branding and chat prefixes to `pfUI VendorTweaks`.
@@ -37,10 +41,17 @@
 - Sell-chat messages are confirmed working on the migrated build.
 - User-facing addon branding has been renamed to `pfUI VendorTweaks` in the TOC title, pfUI panel/title, chat prefixes, movable Bin label, locale values and development documentation.
 - Technical identifiers remain `pfUI-VendorTweaks` / `pfUI_VendorTweaks` where required for addon loading, paths and SavedVariables.
-- The renamed UI and existing Bin artwork path still need an in-game smoke test.
+- Technical addon identifiers are now normalized to `pfUI_VendorTweaks`: TOC/Lua basename, `ADDON_NAME`, SavedVariables, named frames/textures, slider global and addon texture path.
+- Burn artwork is now `artwork/pfUI_VendorTweaks_Burn.tga`; the image blob is byte-identical to the prior asset.
+- Dev-only `Debug.lua` is loaded after the main addon and creates a draggable burn tuning frame.
+- Debug controls provide `Play Burn`, direct numeric entry and +/- 1 UI-unit adjustment for Item X/Y and Fire X/Y, plus `Print Values` and `Reset`.
+- Main addon exposes only narrow Bin frame methods for preview/offset tuning; normal vendor/delete behavior does not depend on `Debug.lua`.
+- Static checks passed: TOC locale paths use one separator, old hyphenated addon Lua/TOC paths are removed, and no old `pfVendorTweaks` / `pfVT_` named globals remain.
+- The normalized addon and debug UI still need an in-game test.
 
 ## Current Issues
-- None known.
+- GitHub repository slug is still `pfUI-VendorTweaks`; the available GitHub connector does not expose repository rename. For WoW, the installed addon folder must now be named `pfUI_VendorTweaks` so it matches `pfUI_VendorTweaks.toc` and the runtime texture path.
+- Renaming the Bin frame identifier means any pfUI movable position previously saved under the old frame name will not carry across automatically.
 
 ## Testing
 
@@ -51,7 +62,7 @@
 - Passed: sell-chat ON/OFF behavior.
 
 ### Next Test
-- Install current `dev` (`0.1.27-dev`).
+- Install current `dev` (`0.1.27-dev`) in a folder named exactly `pfUI_VendorTweaks`.
 - Confirm the addon loads and the `pfUI VendorTweaks` panel in pfUI opens normally.
 - Confirm localized labels resolve rather than showing `VT_...` keys.
 - Confirm the existing Bin burn artwork still renders from `artwork/`.
@@ -59,8 +70,6 @@
 - Sell-chat ON/OFF behavior is already confirmed working.
 
 ## Planned / To-do
-- Normalize addon technical identifiers to `pfUI_VendorTweaks`: addon basename, TOC/Lua filenames, metadata identifier, frame/global names and addon texture path.
-- Add dev-only `Debug.lua` with replay control plus independent item-icon X/Y and fire-sprite X/Y tuning.
 - After the migration smoke test, implement the revised Auto-Delete animation:
   - live item icon remains readable during ignition.
   - fire rapidly grows to obscure the icon.
@@ -76,4 +85,4 @@
 - Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so avoid heuristic matching.
 
 ## Exact Next Step
-Implement the `pfUI_VendorTweaks` identifier normalization and dev-only burn tuning panel, then test the debug replay and positioning controls in game.
+In game, load the addon from folder `pfUI_VendorTweaks`. Verify the debug frame appears, `Play Burn` replays the effect, direct values and +/- controls independently move Item X/Y and Fire X/Y, and `Print Values` reports the chosen coordinates. Report the preferred item/fire coordinates; then use them as the baseline for the revised Auto-Delete animation.
