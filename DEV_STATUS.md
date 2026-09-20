@@ -83,5 +83,40 @@
 - Additional/interpolated burn frames unless this 8-frame test proves too jumpy.
 - Polished/custom burn sound unless the stock Vanilla sound is unsatisfactory.
 
+## Current design direction for delete animation
+Preferred redesign from the latest review:
+
+1. Live item icon phase
+   - show the real item icon normally
+   - ignite around the item
+   - fire rapidly grows and engulfs the icon
+   - at peak fire, the flames fully obscure the live icon
+
+2. Sprite-driven remains phase
+   - hide the real live icon at peak fire
+   - swap to a generic black/charred icon-remains sprite
+   - charred remains buckle and collapse downward
+   - finish as a compact ash pile with a brief smoke/ember linger
+
+Rationale:
+- avoids trying to procedurally deform arbitrary item icons
+- keeps item identity readable only during the part where it matters
+- lets the collapse-to-ash portion be authored as proper effect art
+- should feel smoother and more intentional at low frame counts
+- target feel is a stylized Crash Bandicoot-like collapse to ash, without copying any specific copyrighted asset
+
 ## Exact next step
-Install/test `dev` `0.1.27-dev10`. Confirm the Auto-Vendor column mirrors Auto-Delete: `Show sell animation` is visibly greyed/non-functional, `Show sell message in chat` is clickable and defaults ON, and the vendor drop target sits below both. Sell one custom Auto-Vendor item and/or grey item with chat ON, then turn chat OFF and confirm the sale still occurs without the VendorTweaks `Sold:` line. Audio remains intentionally disabled.
+1. Install/test `dev` `0.1.27-dev10`.
+2. Verify the Auto-Vendor side:
+   - `Show sell animation` is visible, greyed out and non-functional
+   - `Show sell message in chat` is clickable and defaults ON
+   - vendor drop target sits below both
+3. Test sell chat:
+   - sell one grey and/or Auto-Vendor-listed item with chat ON and confirm localized `Sold:` output
+   - turn sell chat OFF and repeat; sale must still occur with no VendorTweaks `Sold:` line
+4. If dev10 passes, begin the revised Auto-Delete animation implementation:
+   - real icon burns until peak fire obscures it
+   - hide live icon at peak
+   - swap to a generic charred-remains sprite
+   - collapse the charred remains into ash with a short smoke/ember linger
+5. Start a fresh development chat from this handoff before substantial implementation work.
