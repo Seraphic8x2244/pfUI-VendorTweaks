@@ -1,11 +1,11 @@
--- pfUI-VendorTweaks localisation: deDE
+-- pfUI VendorTweaks localisation: deDE
 -- Keep format specifiers unchanged: %d %s
 
 if not pfUI_translation then return end
 
 pfUI_translation["deDE"] = pfUI_translation["deDE"] or {}
 local entries = {
-    ["VT_VENDOR_TWEAKS"] = "VendorTweaks",
+    ["VT_VENDOR_TWEAKS"] = "pfUI VendorTweaks",
     ["VT_THROTTLE_AUTOSELL"] = "pfUI-Autoverkauf drosseln",
     ["VT_AUTO_VENDOR"] = "Auto-Verkauf",
     ["VT_AUTO_DELETE"] = "Auto-Löschen",
@@ -19,7 +19,7 @@ local entries = {
     ["VT_SOLD"] = "Verkauft: %s",
     ["VT_SHOW_DELETE_ANIMATION"] = "Löschanimation anzeigen",
     ["VT_DELETED"] = "Gelöscht: %s",
-    ["VT_BIN"] = "VendorTweaks Bin",
+    ["VT_BIN"] = "pfUI VendorTweaks Bin",
 }
 
 for key, value in pairs(entries) do
