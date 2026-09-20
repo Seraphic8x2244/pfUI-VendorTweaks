@@ -3,10 +3,13 @@
 ## Current
 - Branch: `dev`
 - Version: `0.1.27-dev`
-- Goal: Finish verification of the balanced Auto-Vendor feedback controls, then begin the revised Auto-Delete animation rework.
+- Goal: Verify the `pfUI VendorTweaks` branding rename in game, then begin the revised Auto-Delete animation rework.
 - Workflow: Migrated to the canonical `VanillaTemplate` development contract.
 
 ## Recent Commits
+- `64dd0f970ecab165a86f116e496c3581c616d391` — Complete `pfUI VendorTweaks` locale branding rename.
+- `146a119e901442aa7ee3267f86678788ff329ca9` — Rename addon-list title to `pfUI VendorTweaks-dev`.
+- `b9389ea81ef4d3573b1cc28dacb30468f502bb50` — Rename runtime branding and chat prefixes to `pfUI VendorTweaks`.
 - `bc95b18a59534c0c308fc18754a7658dcec2c82d` — Migrate pfUI VendorTweaks to canonical workflow.
 - `8abdce0230b11c776528add6d8916cc3b8c889d1` — Adopt canonical addon development guide.
 - `247262b65211368c9484b13753788c312d23bf35` — Record pfUI VendorTweaks migration handoff.
@@ -31,7 +34,10 @@
 - Localized `Sold: %s` output covers custom Auto-Vendor and grey-item takeover sales.
 - Sell-chat ON/OFF behavior has been confirmed working in game.
 - Static migration checks passed: every locale defines all 15 pfUI VendorTweaks keys; the TOC loads all locale files; the Lua file has no hardcoded dev10 version; and the moved burn TGA retains the exact original blob SHA.
-- The migrated addon load/localization/artwork path still needs an in-game smoke test.
+- Sell-chat messages are confirmed working on the migrated build.
+- User-facing addon branding has been renamed to `pfUI VendorTweaks` in the TOC title, pfUI panel/title, chat prefixes, movable Bin label, locale values and development documentation.
+- Technical identifiers remain `pfUI-VendorTweaks` / `pfUI_VendorTweaks` where required for addon loading, paths and SavedVariables.
+- The renamed UI and existing Bin artwork path still need an in-game smoke test.
 
 ## Current Issues
 - None known.
@@ -46,7 +52,7 @@
 
 ### Next Test
 - Install current `dev` (`0.1.27-dev`).
-- Confirm the addon loads and the pfUI VendorTweaks pfUI panel opens normally.
+- Confirm the addon loads and the `pfUI VendorTweaks` panel in pfUI opens normally.
 - Confirm localized labels resolve rather than showing `VT_...` keys.
 - Confirm the existing Bin burn artwork still renders from `artwork/`.
 - Confirm `Show sell animation` remains disabled and `Show sell message in chat` remains clickable.
@@ -68,4 +74,4 @@
 - Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so avoid heuristic matching.
 
 ## Exact Next Step
-Rename the addon’s user-facing branding to `pfUI VendorTweaks` everywhere while preserving the technical addon identifier/path where required by WoW, then smoke-test the renamed UI.
+In-game smoke-test the `pfUI VendorTweaks` rename: addon-list title, pfUI panel/title, chat prefix and movable Bin label. If clean, begin the revised Auto-Delete animation implementation.
