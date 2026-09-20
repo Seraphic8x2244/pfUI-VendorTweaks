@@ -1,10 +1,11 @@
--- pfUI-VendorTweaks v0.1.27-dev10
+-- pfUI-VendorTweaks
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
 if not pfUI then return end
 
 local ADDON_NAME = "pfUI-VendorTweaks"
+local ADDON_VERSION = GetAddOnMetadata(ADDON_NAME, "Version")
 local DB = nil
 local missingIconIDs = {}
 local iconRepairInitialized = false
@@ -75,6 +76,9 @@ end
 local function T_(key)
   if pfUI.env and pfUI.env.T and pfUI.env.T[key] then
     return pfUI.env.T[key]
+  end
+  if pfUI_translation and pfUI_translation.enUS and pfUI_translation.enUS[key] then
+    return pfUI_translation.enUS[key]
   end
   return key
 end
@@ -281,7 +285,7 @@ worker:SetScript("OnUpdate", function()
   if currentID and currentID == item.id then
     UseContainerItem(item.bag, item.slot)
     if Enabled("showSellChat") then
-      DEFAULT_CHAT_FRAME:AddMessage("|cff33ff33[VendorTweaks]|r " .. string.format(T_("Sold: %s"), currentLink))
+      DEFAULT_CHAT_FRAME:AddMessage("|cff33ff33[VendorTweaks]|r " .. string.format(T_("VT_SOLD"), currentLink))
     end
   end
 end)
@@ -542,7 +546,7 @@ binIcon:Hide()
 
 local binBurn = binFrame:CreateTexture(nil, "OVERLAY")
 binBurn:SetAllPoints(binFrame)
-binBurn:SetTexture("Interface\\AddOns\\pfUI-VendorTweaks\\vendor-tweaks-burn.tga")
+binBurn:SetTexture("Interface\\AddOns\\pfUI-VendorTweaks\\artwork\\vendor-tweaks-burn.tga")
 binBurn:Hide()
 
 local BIN_FRAME_COUNT = 8
@@ -610,7 +614,7 @@ binFrame:SetScript("OnUpdate", function()
   -- pfUI creates the dragger lazily the first time Unlock Mode is opened.
   -- Replace its compact frame-name label with the human-facing anchor name.
   if BinUnlockVisible() and this.drag and this.drag.text then
-    this.drag.text:SetText("VendorTweaks Bin")
+    this.drag.text:SetText(T_("VT_BIN"))
   end
 
   if not binRunning then return end
@@ -707,7 +711,7 @@ local function ExecuteSafeDeleteStep()
           PlayBinAnimation(id, slotTexture)
         end
         if Enabled("showDeleteChat") then
-          DEFAULT_CHAT_FRAME:AddMessage("|cffff3333[VendorTweaks]|r " .. string.format(T_("Deleted: %s"), link))
+          DEFAULT_CHAT_FRAME:AddMessage("|cffff3333[VendorTweaks]|r " .. string.format(T_("VT_DELETED"), link))
         end
 
         -- Let the server settle this deletion before looking for another stack.
@@ -738,7 +742,7 @@ local function BuildComponentsPanel(parent)
 
   local title = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -8)
-  title:SetText(T_("VendorTweaks"))
+  title:SetText(T_("VT_VENDOR_TWEAKS"))
 
   -- pfUI's modern checkbox skin builds its backdrop from child frames. A texture
   -- on the CheckButton itself can therefore render underneath that backdrop even
@@ -827,7 +831,7 @@ local function BuildComponentsPanel(parent)
   -- Enabling this is both the takeover switch and the Auto-Sell ON switch.
   -- When disabled, pfUI's own Auto-Sell setting and behaviour are restored intact.
   local takeover = MakeCheckbox(title, -12,
-    T_("Throttle pfUI auto-sell"), "takeoverGreys", function()
+    T_("VT_THROTTLE_AUTOSELL"), "takeoverGreys", function()
       CancelSellQueue()
       ApplyGreyTakeover()
     end)
@@ -852,13 +856,13 @@ local function BuildComponentsPanel(parent)
 
   -- The list toggles double as the two side-by-side section subheaders.
   local autoVendor = MakeCheckbox(takeover, -32,
-    T_("Auto-Vendor"), "autoVendor")
+    T_("VT_AUTO_VENDOR"), "autoVendor")
 
   local showSellAnimation = MakeDisabledCheckbox(autoVendor, -2,
-    T_("Show sell animation"))
+    T_("VT_SHOW_SELL_ANIMATION"))
 
   local showSellChat = MakeCheckbox(showSellAnimation, -2,
-    T_("Show sell message in chat"), "showSellChat")
+    T_("VT_SHOW_SELL_CHAT"), "showSellChat")
 
   local autoDelete = CreateFrame("CheckButton", nil, parent)
   autoDelete:SetWidth(20)
@@ -869,7 +873,7 @@ local function BuildComponentsPanel(parent)
 
   local deleteLabel = autoDelete:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   deleteLabel:SetPoint("LEFT", autoDelete, "RIGHT", 5, 0)
-  deleteLabel:SetText(T_("Auto-Delete"))
+  deleteLabel:SetText(T_("VT_AUTO_DELETE"))
 
   autoDelete:SetScript("OnClick", function()
     if not DB then return end
@@ -885,12 +889,12 @@ local function BuildComponentsPanel(parent)
   -- Keep Auto-Delete feedback controls between the feature toggle and its
   -- drop target so they sit outside the list scroll frame and remain clickable.
   local showDeleteAnimation = MakeCheckbox(autoDelete, -2,
-    T_("Show delete animation"), "showDeleteAnimation", function()
+    T_("VT_SHOW_DELETE_ANIMATION"), "showDeleteAnimation", function()
       if not Enabled("showDeleteAnimation") then ResetBinVisual() end
     end)
 
   local showDeleteChat = MakeCheckbox(showDeleteAnimation, -2,
-    T_("Show delete message in chat"), "showDeleteChat")
+    T_("VT_SHOW_DELETE_CHAT"), "showDeleteChat")
 
   local function SetDropHighlight(frame, shown)
     if not frame or not frame.goldBorder then return end
@@ -955,8 +959,8 @@ local function BuildComponentsPanel(parent)
     return frame
   end
 
-  local vendorDrop = MakeDropSlot(showSellChat, T_("Drop item here to vendor"))
-  local deleteDrop = MakeDropSlot(showDeleteChat, T_("Drop item here to delete"))
+  local vendorDrop = MakeDropSlot(showSellChat, T_("VT_DROP_VENDOR"))
+  local deleteDrop = MakeDropSlot(showDeleteChat, T_("VT_DROP_DELETE"))
 
   local LIST_WIDTH = 195
   local LIST_HEIGHT = 190
@@ -1114,7 +1118,7 @@ local function BuildComponentsPanel(parent)
     local item = DB.items and DB.items[id]
     local name = type(item) == "table" and item.name or nil
     local texture = type(item) == "table" and item.icon or nil
-    return name or string.format(T_("ID: %d"), id), texture
+    return name or string.format(T_("VT_ID"), id), texture
   end
 
   local function Refresh()
@@ -1288,7 +1292,7 @@ local function BuildComponentsPanel(parent)
       end
     end
 
-    CacheItemInfo(itemID, name or string.format(T_("Item #%d"), itemID), texture)
+    CacheItemInfo(itemID, name or string.format(T_("VT_ITEM_FALLBACK"), itemID), texture)
     if texture then
       missingIconIDs[itemID] = nil
     else
@@ -1314,7 +1318,7 @@ local function BuildComponentsPanel(parent)
 end
 
 if pfUI.gui and pfUI.gui.CreateGUIEntry then
-  pfUI.gui.CreateGUIEntry(T_("Thirdparty"), T_("VendorTweaks"), function()
+  pfUI.gui.CreateGUIEntry(T_("Thirdparty"), T_("VT_VENDOR_TWEAKS"), function()
     BuildComponentsPanel(this)
   end)
 end
