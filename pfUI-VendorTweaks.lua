@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks
+-- pfUI VendorTweaks
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -285,7 +285,7 @@ worker:SetScript("OnUpdate", function()
   if currentID and currentID == item.id then
     UseContainerItem(item.bag, item.slot)
     if Enabled("showSellChat") then
-      DEFAULT_CHAT_FRAME:AddMessage("|cff33ff33[VendorTweaks]|r " .. string.format(T_("VT_SOLD"), currentLink))
+      DEFAULT_CHAT_FRAME:AddMessage("|cff33ff33[pfUI VendorTweaks]|r " .. string.format(T_("VT_SOLD"), currentLink))
     end
   end
 end)
@@ -525,7 +525,7 @@ local function InstallMerchantPurchaseHooks()
 end
 
 -- -----------------------------------------------------------------------------
--- VendorTweaks Bin
+-- pfUI VendorTweaks Bin
 -- A tiny visual acknowledgement for successful Auto-Delete actions. The frame
 -- is registered with pfUI's movable system, so pfUI Unlock Mode owns position,
 -- scale and reset behaviour exactly like native pfUI movable frames.
@@ -711,7 +711,7 @@ local function ExecuteSafeDeleteStep()
           PlayBinAnimation(id, slotTexture)
         end
         if Enabled("showDeleteChat") then
-          DEFAULT_CHAT_FRAME:AddMessage("|cffff3333[VendorTweaks]|r " .. string.format(T_("VT_DELETED"), link))
+          DEFAULT_CHAT_FRAME:AddMessage("|cffff3333[pfUI VendorTweaks]|r " .. string.format(T_("VT_DELETED"), link))
         end
 
         -- Let the server settle this deletion before looking for another stack.
@@ -1138,7 +1138,7 @@ local function BuildComponentsPanel(parent)
     for _, row in ipairs(vendorPool) do row:Hide() end
     for _, row in ipairs(deletePool) do row:Hide() end
 
-    -- Known VendorTweaks metadata wins immediately. Only incomplete entries
+    -- Known pfUI VendorTweaks metadata wins immediately. Only incomplete entries
     -- query WoW's item cache. If Refresh discovers a previously-untracked
     -- missing icon, perform one shared bag scan; already-tracked misses rely on
     -- the on-demand BAG_UPDATE repair listener instead of rescanning all bags.
