@@ -7,6 +7,7 @@
 - Workflow: Migrated to the canonical `VanillaTemplate` development contract.
 
 ## Recent Commits
+- Repository renamed externally to `Seraphic8x2244/pfUI_VendorTweaks`, completing technical identifier normalization.
 - `43819d4a49740358d02ddbfc6c81de4e6ea2d148` — Normalize `pfUI_VendorTweaks` burn asset name.
 - `5a8c43adc38e25d3a353cbe243fde53e98705342` — Add/localise burn debug controls and corrected TOC paths.
 - `e153d1abe3e47a5b9d9f6deddcd03f29be2f869d` — Normalize identifiers and add burn debug controls.
@@ -50,7 +51,6 @@
 - The normalized addon and debug UI still need an in-game test.
 
 ## Current Issues
-- GitHub repository slug is still `pfUI-VendorTweaks`; the available GitHub connector does not expose repository rename. For WoW, the installed addon folder must now be named `pfUI_VendorTweaks` so it matches `pfUI_VendorTweaks.toc` and the runtime texture path.
 - Renaming the Bin frame identifier means any pfUI movable position previously saved under the old frame name will not carry across automatically.
 
 ## Testing
