@@ -3,7 +3,7 @@
 ## Current
 - Branch: `dev`
 - Version: `0.1.27-dev`
-- Goal: In-game test the normalized `pfUI_VendorTweaks` addon and the first dev-only burn-position tuning panel.
+- Goal: Expand dev-only `Debug.lua` into a 2.0s animation timing authoring tool with draggable frame markers and configurable millisecond snapping.
 - Workflow: Migrated to the canonical `VanillaTemplate` development contract.
 
 ## Recent Commits
@@ -72,6 +72,10 @@
 - Sell-chat ON/OFF behavior is already confirmed working.
 
 ## Planned / To-do
+- Add a 2.0-second debug timeline ruler with draggable frame markers.
+- Add snap choices: 10/15/20/25/30/35/40/45/50 ms.
+- Add explicit open/close controls for the debug controls and timeline windows, plus a simple toggle command.
+- Keep debug-authored timing data independent from the eventual production animation implementation.
 - After the migration smoke test, implement the revised Auto-Delete animation:
   - live item icon remains readable during ignition.
   - fire rapidly grows to obscure the icon.
@@ -87,4 +91,4 @@
 - Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so avoid heuristic matching.
 
 ## Exact Next Step
-Install/test the `dev` branch specifically in folder `pfUI_VendorTweaks`; it contains the matching `pfUI_VendorTweaks.toc`, `pfUI_VendorTweaks.lua` and `Debug.lua`. Do not promote dev animation work to stable `main`; normalize stable `main` separately only when explicitly approved.
+Implement the 2.0s debug timeline ruler, selectable 10–50 ms snap values, and open/close controls in `Debug.lua`, then in-game test marker dragging and playback authoring.
