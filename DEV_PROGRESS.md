@@ -7,7 +7,7 @@
 - Workflow: Migrated to the canonical `VanillaTemplate` development contract.
 
 ## Recent Commits
-- Current migration commit — adopt canonical workflow structure, versioning, locales and artwork layout.
+- `bc95b18a59534c0c308fc18754a7658dcec2c82d` — Migrate VendorTweaks to canonical workflow.
 - `8abdce0230b11c776528add6d8916cc3b8c889d1` — Adopt canonical addon development guide.
 - `247262b65211368c9484b13753788c312d23bf35` — Record VendorTweaks migration handoff.
 - `0d2ee5634a45e4031aa70d267f6b8bfba8c646dd` — Bump VendorTweaks dev10 test version.
@@ -30,6 +30,7 @@
 - `Show sell message in chat` should default ON and control only VendorTweaks sell-chat output.
 - Localized `Sold: %s` output covers custom Auto-Vendor and grey-item takeover sales.
 - Sell-chat ON/OFF behavior is still untested in game.
+- Static migration checks passed: every locale defines all 15 VendorTweaks keys; the TOC loads all locale files; the Lua file has no hardcoded dev10 version; and the moved burn TGA retains the exact original blob SHA.
 - The migrated addon load/localization/artwork path still needs an in-game smoke test.
 
 ## Current Issues
