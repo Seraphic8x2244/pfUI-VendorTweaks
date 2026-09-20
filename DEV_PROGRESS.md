@@ -3,101 +3,66 @@
 ## Current
 - Branch: `dev`
 - Version: `0.1.27-dev`
-- Goal: In-game test the new 2.0s animation timing authoring ruler before replacing the burn artwork with the higher-frame fire + burned-icon collapse sequence.
-- Workflow: Migrated to the canonical `VanillaTemplate` development contract.
+- Repository/addon technical name: `pfUI_VendorTweaks`
+- User-facing name: `pfUI VendorTweaks`
+- Goal: User-test the restored 8-frame Auto-Delete burn and its dev-only timing/position authoring tools, then promote this approved functional state to stable `main` using `DEV_GUIDE.md`.
+- Workflow: Canonical `VanillaTemplate` development contract; `DEV_GUIDE.md` is authoritative.
 
-## Recent Commits
-- `070a39ffbef0063c96bd04be2963fc73946b6796` — Add draggable 2.0s burn timing ruler.
-- `53329e63c188437ea54849b5aa4e8af9efa22a2b` — Add debug timeline locale strings.
-- `c1a845dce34f89a17b4bfb1608bd5615bf39df6b` — Expose debug fire timeline playback.
-- `f370b8a99a2674ea70fa663a0528907ff6fb1784` — Record debug timeline implementation handoff.
-- `a5ee54a1c75b5770510f2cd04ccd02daa44ed19b` — Restore coloured `pfUI VendorTweaks-dev` TOC title.
-- Repository renamed externally to `Seraphic8x2244/pfUI_VendorTweaks`, completing technical identifier normalization.
-- `43819d4a49740358d02ddbfc6c81de4e6ea2d148` — Normalize `pfUI_VendorTweaks` burn asset name.
-- `5a8c43adc38e25d3a353cbe243fde53e98705342` — Add/localise burn debug controls and corrected TOC paths.
-- `e153d1abe3e47a5b9d9f6deddcd03f29be2f869d` — Normalize identifiers and add burn debug controls.
-- `63d3a5217861f23cfe02882c62f2487262c4bb1a` — Record identifier and `Debug.lua` work.
-- `64dd0f970ecab165a86f116e496c3581c616d391` — Complete `pfUI VendorTweaks` locale branding rename.
-- `146a119e901442aa7ee3267f86678788ff329ca9` — Rename addon-list title to `pfUI VendorTweaks-dev`.
-- `b9389ea81ef4d3573b1cc28dacb30468f502bb50` — Rename runtime branding and chat prefixes to `pfUI VendorTweaks`.
-- `bc95b18a59534c0c308fc18754a7658dcec2c82d` — Migrate pfUI VendorTweaks to canonical workflow.
-- `8abdce0230b11c776528add6d8916cc3b8c889d1` — Adopt canonical addon development guide.
-- `247262b65211368c9484b13753788c312d23bf35` — Record pfUI VendorTweaks migration handoff.
-- `0d2ee5634a45e4031aa70d267f6b8bfba8c646dd` — Bump pfUI VendorTweaks dev10 test version.
-- `7ece3f23e04f6614f0370070ba068a2eab69fd58` — Localise sell feedback options.
-- `049b82601159f4fffac59ec775356516266ec7f1` — Add balanced sell feedback options.
+## Current Code State
+- `dev` was restored to the functional state at `07ea0eb4e57a89c9893566d6eb328b79ffad5ec2`.
+- Production Auto-Delete feedback uses the existing single 8-frame burn strip:
+  - `artwork/pfUI_VendorTweaks_Burn.tga`
+  - `BIN_FRAME_COUNT = 8`
+  - approximately 1.0 second default runtime.
+- The speculative 16-frame fire + 12-frame ash/two-part replacement is not present.
+- No `pfUI_VendorTweaks_Fire.tga` or `pfUI_VendorTweaks_Ash.tga` exists on current `dev`.
 
-## Completed / Verified
-- Auto-Delete feedback checkbox placement and clickability were verified in game before the workflow migration.
-- Latest pre-migration build: Auto-Vendor feedback options appear in the menu and the user confirmed the layout is perfect.
-- Existing vendor queue, Auto-Delete safety logic, vendor-purchase exemption and pfUI integration were intentionally not refactored during migration.
+## Debug Authoring Tool
+- `Debug.lua` is dev-only and loaded after the main addon.
+- `/vtdebug` toggles the main controls.
+- `/vtdebug timeline` toggles the 2.0-second timing ruler.
+- `/vtdebug all` opens both.
+- The ruler exposes the existing 8 burn frames plus `END`.
+- Snap choices: 10/15/20/25/30/35/40/45/50 ms.
+- `Play Burn` previews the authored 8-frame timing.
+- `Print Values` reports placement offsets and frame timestamps.
+- `Reset` restores the default timing and offsets.
+- Main runtime exposes only the narrow debug methods needed by `Debug.lua`; normal addon behaviour does not depend on `Debug.lua`.
 
-## Implemented / Awaiting Test
-- `Debug.lua` now has a separate draggable 2.0-second timing ruler window for the current fire sequence.
-- Snap choices are 10/15/20/25/30/35/40/45/50 ms; changing snap affects subsequent marker movement without rewriting existing marker positions.
-- Each current fire frame has a draggable timestamp marker plus an `END` marker; marker order is preserved.
-- The selected marker can also be nudged by the active snap amount.
-- `Play Burn` previews the current authored fire timing immediately; `Print Values` reports both offsets and timeline timestamps.
-- The main controls and timeline can each be closed independently. `/vtdebug` toggles the controls, `/vtdebug timeline` toggles the ruler, and `/vtdebug all` reopens both.
-- The ruler is frame-count driven and currently exposes the existing 8 fire frames; it can expand when the replacement higher-frame assets are added.
-- Canonical workflow migration:
-  - `DEV_GUIDE.md` adopted unchanged from `VanillaTemplate`.
-  - development version normalized to `0.1.27-dev`; numbered dev versions are retired.
-  - .toc is the sole version source; Lua reads `ADDON_VERSION` with `GetAddOnMetadata`.
-  - localization split into `locales/<locale>.lua` files with stable pfUI VendorTweaks keys and an enUS fallback.
-  - burn artwork moved to `artwork/` and its texture path updated.
-- `Show sell animation` placeholder should remain visible, greyed out and non-functional.
-- `Show sell message in chat` should default ON and control only pfUI VendorTweaks sell-chat output.
-- Localized `Sold: %s` output covers custom Auto-Vendor and grey-item takeover sales.
-- Sell-chat ON/OFF behavior has been confirmed working in game.
-- Static migration checks passed: every locale defines all 15 pfUI VendorTweaks keys; the TOC loads all locale files; the Lua file has no hardcoded dev10 version; and the moved burn TGA retains the exact original blob SHA.
-- Sell-chat messages are confirmed working on the migrated build.
-- User-facing addon branding is `pfUI VendorTweaks`; the dev TOC title now restores the established pfUI colouring (`pf` teal, `UI` white, `VendorTweaks-dev` grey).
-- Technical identifiers remain `pfUI-VendorTweaks` / `pfUI_VendorTweaks` where required for addon loading, paths and SavedVariables.
-- Technical addon identifiers are now normalized to `pfUI_VendorTweaks`: TOC/Lua basename, `ADDON_NAME`, SavedVariables, named frames/textures, slider global and addon texture path.
-- Burn artwork is now `artwork/pfUI_VendorTweaks_Burn.tga`; the image blob is byte-identical to the prior asset.
-- Dev-only `Debug.lua` is loaded after the main addon and creates a draggable burn tuning frame.
-- Debug controls provide `Play Burn`, direct numeric entry and +/- 1 UI-unit adjustment for Item X/Y and Fire X/Y, plus `Print Values` and `Reset`.
-- Main addon exposes only narrow Bin frame methods for preview/offset tuning; normal vendor/delete behavior does not depend on `Debug.lua`.
-- Static checks passed: TOC locale paths use one separator, old hyphenated addon Lua/TOC paths are removed, and no old `pfVendorTweaks` / `pfVT_` named globals remain.
-- The normalized addon and debug UI still need an in-game test.
+## Completed / User Verified
+- Auto-Delete feedback checkbox placement and clickability.
+- Auto-Vendor feedback layout.
+- Sell-chat ON/OFF behaviour.
+- User-facing branding: `pfUI VendorTweaks`.
+- Technical identifiers normalized to `pfUI_VendorTweaks`.
+- Existing vendor queue, Auto-Delete safety logic, vendor-purchase exemption and pfUI integration were not intentionally refactored during the workflow migration.
+- Dev debug controls/timeline UX was previously tested sufficiently to establish that the authoring framework works.
 
-## Current Issues
-- Root cause found for the reported no-load install: the renamed repository/folder is `pfUI_VendorTweaks`, but stable `main` still contains the old `pfUI-VendorTweaks.toc` / `.lua` basenames. Vanilla requires the addon folder and TOC basename to match, so a default-branch install is not recognized. Current `dev` has matching `pfUI_VendorTweaks.toc` / `.lua` and remains the branch required for `Debug.lua` testing.
-- Renaming the Bin frame identifier means any pfUI movable position previously saved under the old frame name will not carry across automatically.
+## Implemented / Awaiting Current In-Game Test
+- Restored current `dev` after shelving the unfinished longer/two-part burn replacement.
+- Current repository checks confirm:
+  - `BIN_FRAME_COUNT = 8`;
+  - single `pfUI_VendorTweaks_Burn.tga` asset;
+  - 8-frame debug timeline API;
+  - no ash runtime/debug API;
+  - no Fire/Ash replacement assets.
+- This restored branch state still needs the user's final in-game test before stable approval.
 
-## Testing
-
-### Last Test
-- Version/commit: pre-migration `0.1.27-dev10` / `0d2ee5634a45e4031aa70d267f6b8bfba8c646dd`
-- Passed: Auto-Vendor feedback options are visible; layout confirmed perfect.
-- Failed: None reported.
-- Passed: sell-chat ON/OFF behavior.
-
-### Next Test
-- Install current `dev` (`0.1.27-dev`) in a folder named exactly `pfUI_VendorTweaks`.
-- Confirm the addon loads and the `pfUI VendorTweaks` panel in pfUI opens normally.
-- Confirm localized labels resolve rather than showing `VT_...` keys.
-- Confirm the existing Bin burn artwork still renders from `artwork/`.
-- Confirm `Show sell animation` remains disabled and `Show sell message in chat` remains clickable.
-- Sell-chat ON/OFF behavior is already confirmed working.
-
-## Planned / To-do
-- After the debug authoring UX is verified, replace the current low-frame fire/wipe animation with higher-frame fire plus a pre-authored burned WoW-icon collapse-to-ash sequence.
-- Keep debug-authored timing data independent from the eventual production animation implementation.
-- After the migration smoke test, implement the revised Auto-Delete animation:
-  - live item icon remains readable during ignition.
-  - fire rapidly grows to obscure the icon.
-  - hide the live icon at peak fire.
-  - swap to generic charred remains.
-  - collapse remains into ash with a short smoke/ember linger.
-
-## Ideas / Backlog
-- Add a polished/custom burn sound if stock Vanilla sounds are unsatisfactory.
-- Add/interpolate burn frames only if the revised effect needs them.
+## Stable Promotion Rules
+After the user explicitly approves this exact dev state as stable:
+- Promote the same approved functional code to `main`.
+- Change TOC Title to remove `-dev`.
+- Change TOC Version from `0.1.27-dev` to `0.1.27`.
+- Remove `DEV_GUIDE.md`.
+- Remove `DEV_PROGRESS.md`.
+- Remove `Debug.lua` and its TOC entry.
+- Do not include knowingly untested/speculative work.
+- Do not invent another version, redesign the release, or perform unrelated refactors during promotion.
+- The TOC remains the single version source.
 
 ## Deferred
+- Longer/higher-frame/two-part burn replacement, including separate fire and burned/ash artwork, is shelved.
 - Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so avoid heuristic matching.
 
 ## Exact Next Step
-In game on current `dev`, verify: both debug windows can close/reopen; all snap choices work; fire markers and `END` drag on the 2.0s ruler without crossing; +/- nudges use the selected snap; `Play Burn` follows the authored marker timing; and `Print Values` outputs the chosen timestamps. If that UX feels good, move on to the higher-frame fire and burned-icon collapse artwork/runtime.
+User installs current `dev` and tests the restored 8-frame burn plus the debug controls/timing ruler. If the user explicitly approves this exact state as stable, perform the documented `dev` -> `main` cleanup/promotion without changing functional runtime behaviour.
