@@ -51,6 +51,7 @@
 - The normalized addon and debug UI still need an in-game test.
 
 ## Current Issues
+- Current `dev` installs but does not visibly load in game; root cause under investigation.
 - Renaming the Bin frame identifier means any pfUI movable position previously saved under the old frame name will not carry across automatically.
 
 ## Testing
@@ -85,4 +86,4 @@
 - Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so avoid heuristic matching.
 
 ## Exact Next Step
-In game, load the addon from folder `pfUI_VendorTweaks`. Verify the debug frame appears, `Play Burn` replays the effect, direct values and +/- controls independently move Item X/Y and Fire X/Y, and `Print Values` reports the chosen coordinates. Report the preferred item/fire coordinates; then use them as the baseline for the revised Auto-Delete animation.
+Diagnose why current `dev` installs but does not visibly load. Verify folder/TOC basename alignment and static Lua validity first; fix the load blocker before any burn-position tuning.
