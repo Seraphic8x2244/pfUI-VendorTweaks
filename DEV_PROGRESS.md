@@ -51,7 +51,7 @@
 - The normalized addon and debug UI still need an in-game test.
 
 ## Current Issues
-- Current `dev` installs but does not visibly load in game; root cause under investigation.
+- Root cause found for the reported no-load install: the renamed repository/folder is `pfUI_VendorTweaks`, but stable `main` still contains the old `pfUI-VendorTweaks.toc` / `.lua` basenames. Vanilla requires the addon folder and TOC basename to match, so a default-branch install is not recognized. Current `dev` has matching `pfUI_VendorTweaks.toc` / `.lua` and remains the branch required for `Debug.lua` testing.
 - Renaming the Bin frame identifier means any pfUI movable position previously saved under the old frame name will not carry across automatically.
 
 ## Testing
@@ -86,4 +86,4 @@
 - Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so avoid heuristic matching.
 
 ## Exact Next Step
-Diagnose why current `dev` installs but does not visibly load. Verify folder/TOC basename alignment and static Lua validity first; fix the load blocker before any burn-position tuning.
+Install/test the `dev` branch specifically in folder `pfUI_VendorTweaks`; it contains the matching `pfUI_VendorTweaks.toc`, `pfUI_VendorTweaks.lua` and `Debug.lua`. Do not promote dev animation work to stable `main`; normalize stable `main` separately only when explicitly approved.
