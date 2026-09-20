@@ -558,7 +558,7 @@ binIcon:Hide()
 local binBurn = binFrame:CreateTexture("pfUI_VendorTweaks_BinBurn", "OVERLAY")
 binBurn:SetWidth(64)
 binBurn:SetHeight(64)
-binBurn:SetTexture("Interface\\AddOns\\pfUI_VendorTweaks\\artwork\\vendor-tweaks-burn.tga")
+binBurn:SetTexture("Interface\\AddOns\\pfUI_VendorTweaks\\artwork\\pfUI_VendorTweaks_Burn.tga")
 binBurn:Hide()
 
 local BIN_FRAME_COUNT = 8
