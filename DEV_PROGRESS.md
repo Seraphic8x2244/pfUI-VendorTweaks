@@ -29,7 +29,7 @@
 - `Show sell animation` placeholder should remain visible, greyed out and non-functional.
 - `Show sell message in chat` should default ON and control only VendorTweaks sell-chat output.
 - Localized `Sold: %s` output covers custom Auto-Vendor and grey-item takeover sales.
-- Sell-chat ON/OFF behavior is still untested in game.
+- Sell-chat ON/OFF behavior has been confirmed working in game.
 - Static migration checks passed: every locale defines all 15 VendorTweaks keys; the TOC loads all locale files; the Lua file has no hardcoded dev10 version; and the moved burn TGA retains the exact original blob SHA.
 - The migrated addon load/localization/artwork path still needs an in-game smoke test.
 
@@ -42,7 +42,7 @@
 - Version/commit: pre-migration `0.1.27-dev10` / `0d2ee5634a45e4031aa70d267f6b8bfba8c646dd`
 - Passed: Auto-Vendor feedback options are visible; layout confirmed perfect.
 - Failed: None reported.
-- Not tested: sell-chat ON/OFF behavior.
+- Passed: sell-chat ON/OFF behavior.
 
 ### Next Test
 - Install current `dev` (`0.1.27-dev`).
@@ -50,8 +50,7 @@
 - Confirm localized labels resolve rather than showing `VT_...` keys.
 - Confirm the existing Bin burn artwork still renders from `artwork/`.
 - Confirm `Show sell animation` remains disabled and `Show sell message in chat` remains clickable.
-- With sell chat ON, sell a qualifying item and confirm localized `Sold:` output.
-- With sell chat OFF, repeat and confirm the sale still occurs with no VendorTweaks `Sold:` line.
+- Sell-chat ON/OFF behavior is already confirmed working.
 
 ## Planned / To-do
 - After the migration smoke test, implement the revised Auto-Delete animation:
@@ -69,4 +68,4 @@
 - Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so avoid heuristic matching.
 
 ## Exact Next Step
-In-game smoke-test the canonical workflow migration and the still-untested sell-chat toggle behavior. If those pass, begin the revised Auto-Delete animation implementation.
+Rename the addon’s user-facing branding to `pfUI VendorTweaks` everywhere while preserving the technical addon identifier/path where required by WoW, then smoke-test the renamed UI.
