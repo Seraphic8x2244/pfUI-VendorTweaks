@@ -1,11 +1,11 @@
--- pfUI-VendorTweaks localisation: zhCN
+-- pfUI VendorTweaks localisation: zhCN
 -- Keep format specifiers unchanged: %d %s
 
 if not pfUI_translation then return end
 
 pfUI_translation["zhCN"] = pfUI_translation["zhCN"] or {}
 local entries = {
-    ["VT_VENDOR_TWEAKS"] = "VendorTweaks",
+    ["VT_VENDOR_TWEAKS"] = "pfUI VendorTweaks",
     ["VT_THROTTLE_AUTOSELL"] = "调整 pfUI 自动贩卖速度",
     ["VT_AUTO_VENDOR"] = "自动贩卖",
     ["VT_AUTO_DELETE"] = "自动删除",
@@ -19,7 +19,7 @@ local entries = {
     ["VT_SOLD"] = "已出售：%s",
     ["VT_SHOW_DELETE_ANIMATION"] = "显示删除动画",
     ["VT_DELETED"] = "已删除：%s",
-    ["VT_BIN"] = "VendorTweaks Bin",
+    ["VT_BIN"] = "pfUI VendorTweaks Bin",
 }
 
 for key, value in pairs(entries) do
