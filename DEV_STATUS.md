@@ -2,12 +2,15 @@
 
 ## Current state
 - Branch: `dev`
-- Test version: `0.1.27-dev9`
+- Test version: `0.1.27-dev10`
 - Base main version: `0.1.26`
 - Branched from: `e9b8c1a0fa6a5fffd0f23a21321f4945b0938024` — Exempt vendor purchases from Auto-Delete
-- Current dev HEAD before this status update: `b7f0d7892bbdb847e48926df6b9ffb4ddb0e10a6`
+- Current dev HEAD before this status update: `0d2ee5634a45e4031aa70d267f6b8bfba8c646dd`
 
 ## Latest dev commits
+- `0d2ee5634a45e4031aa70d267f6b8bfba8c646dd` — Bump VendorTweaks dev10 test version
+- `7ece3f23e04f6614f0370070ba068a2eab69fd58` — Localise sell feedback options
+- `049b82601159f4fffac59ec775356516266ec7f1` — Add balanced sell feedback options
 - `b7f0d7892bbdb847e48926df6b9ffb4ddb0e10a6` — Bump VendorTweaks dev9 test version
 - `997b806485d5d98f214ff540a0a800bf8055fbdb` — Move delete feedback toggles above drop target
 - `8aa20090351656b9099ee7cb07cc2f15f1f51912` — Bump VendorTweaks dev8 test version
@@ -50,10 +53,13 @@
 - `0.1.27-dev1` test showed `igQuestLogAbandonQuest` is the quest-failed sound and unsuitable. `0.1.27-dev2` removes animation audio pending a better choice.
 - Rapid deletes replace/restart the active visual instead of queueing animation notifications.
 - `0.1.27-dev8` removes the temporary `Test Bin Animation` button and adds a per-character `Show delete animation` toggle, default ON.
-- `Show delete animation` and `Show delete message in chat` are stacked together directly below the Auto-Delete list as independent feedback controls.
+- `Show delete animation` and `Show delete message in chat` are stacked between `Auto-Delete` and its drop target as independent feedback controls.
+- `0.1.27-dev10` mirrors that layout on the Auto-Vendor side with a disabled/greyed `Show sell animation` placeholder and a functional per-character `Show sell message in chat` toggle, default ON.
+- VendorTweaks sell chat uses localized `Sold: %s` output from the shared throttled sell engine, so it covers both custom Auto-Vendor items and grey-item takeover sales.
 - Existing Auto-Delete acquisition, BAG_UPDATE debounce, cursor verification, deletion safety and vendor-purchase exemption logic are otherwise unchanged.
 
 ## In-game test findings
+- `0.1.27-dev9`: Auto-Delete feedback checkbox placement and clickability confirmed good in game.
 - `0.1.27-dev8`: both feedback checkboxes rendered but were not clickable; likely overlapped/intercepted by the delete-list scroll frame.
 - `0.1.27-dev6`: icon placement was very close; requested a 2-UI-unit upward nudge.
 - `0.1.27-dev5`: icon still sits about one previous adjustment too high; requested another ~6 UI units downward.
@@ -70,7 +76,7 @@
 - `0.1.27-dev7` icon placement after nudging its centre from y=-14 to y=-12 (with wipe bottom anchor adjusted from -30 to -28), plus blackening/top-down wipe timing.
 - Sound choice/volume.
 - Repeated rapid deletion visual behaviour.
-- `0.1.27-dev9` feedback checkbox placement/clickability between the Auto-Delete checkbox and delete drop target, plus localization widths and independent toggle behavior.
+- `0.1.27-dev10` balanced Auto-Vendor/Auto-Delete feedback layout, disabled sell-animation placeholder appearance, sell-chat toggle behavior, and localization widths.
 
 ## Deferred
 - Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so no heuristic matching.
@@ -78,4 +84,4 @@
 - Polished/custom burn sound unless the stock Vanilla sound is unsatisfactory.
 
 ## Exact next step
-Install/test `dev` `0.1.27-dev9`. Verify `Show delete animation` and `Show delete message in chat` appear directly below `Auto-Delete` and above the delete drop target, and are now clickable. Confirm each can be toggled independently without affecting deletion itself. Audio remains intentionally disabled.
+Install/test `dev` `0.1.27-dev10`. Confirm the Auto-Vendor column mirrors Auto-Delete: `Show sell animation` is visibly greyed/non-functional, `Show sell message in chat` is clickable and defaults ON, and the vendor drop target sits below both. Sell one custom Auto-Vendor item and/or grey item with chat ON, then turn chat OFF and confirm the sale still occurs without the VendorTweaks `Sold:` line. Audio remains intentionally disabled.
