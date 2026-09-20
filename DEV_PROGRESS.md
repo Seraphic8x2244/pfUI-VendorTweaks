@@ -3,10 +3,14 @@
 ## Current
 - Branch: `dev`
 - Version: `0.1.27-dev`
-- Goal: Expand dev-only `Debug.lua` into a 2.0s animation timing authoring tool with draggable frame markers and configurable millisecond snapping.
+- Goal: In-game test the new 2.0s animation timing authoring ruler before replacing the burn artwork with the higher-frame fire + burned-icon collapse sequence.
 - Workflow: Migrated to the canonical `VanillaTemplate` development contract.
 
 ## Recent Commits
+- `070a39ffbef0063c96bd04be2963fc73946b6796` — Add draggable 2.0s burn timing ruler.
+- `53329e63c188437ea54849b5aa4e8af9efa22a2b` — Add debug timeline locale strings.
+- `c1a845dce34f89a17b4bfb1608bd5615bf39df6b` — Expose debug fire timeline playback.
+- `f370b8a99a2674ea70fa663a0528907ff6fb1784` — Record debug timeline implementation handoff.
 - `a5ee54a1c75b5770510f2cd04ccd02daa44ed19b` — Restore coloured `pfUI VendorTweaks-dev` TOC title.
 - Repository renamed externally to `Seraphic8x2244/pfUI_VendorTweaks`, completing technical identifier normalization.
 - `43819d4a49740358d02ddbfc6c81de4e6ea2d148` — Normalize `pfUI_VendorTweaks` burn asset name.
@@ -29,6 +33,13 @@
 - Existing vendor queue, Auto-Delete safety logic, vendor-purchase exemption and pfUI integration were intentionally not refactored during migration.
 
 ## Implemented / Awaiting Test
+- `Debug.lua` now has a separate draggable 2.0-second timing ruler window for the current fire sequence.
+- Snap choices are 10/15/20/25/30/35/40/45/50 ms; changing snap affects subsequent marker movement without rewriting existing marker positions.
+- Each current fire frame has a draggable timestamp marker plus an `END` marker; marker order is preserved.
+- The selected marker can also be nudged by the active snap amount.
+- `Play Burn` previews the current authored fire timing immediately; `Print Values` reports both offsets and timeline timestamps.
+- The main controls and timeline can each be closed independently. `/vtdebug` toggles the controls, `/vtdebug timeline` toggles the ruler, and `/vtdebug all` reopens both.
+- The ruler is frame-count driven and currently exposes the existing 8 fire frames; it can expand when the replacement higher-frame assets are added.
 - Canonical workflow migration:
   - `DEV_GUIDE.md` adopted unchanged from `VanillaTemplate`.
   - development version normalized to `0.1.27-dev`; numbered dev versions are retired.
@@ -72,9 +83,7 @@
 - Sell-chat ON/OFF behavior is already confirmed working.
 
 ## Planned / To-do
-- Add a 2.0-second debug timeline ruler with draggable frame markers.
-- Add snap choices: 10/15/20/25/30/35/40/45/50 ms.
-- Add explicit open/close controls for the debug controls and timeline windows, plus a simple toggle command.
+- After the debug authoring UX is verified, replace the current low-frame fire/wipe animation with higher-frame fire plus a pre-authored burned WoW-icon collapse-to-ash sequence.
 - Keep debug-authored timing data independent from the eventual production animation implementation.
 - After the migration smoke test, implement the revised Auto-Delete animation:
   - live item icon remains readable during ignition.
@@ -91,4 +100,4 @@
 - Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so avoid heuristic matching.
 
 ## Exact Next Step
-Implement the 2.0s debug timeline ruler, selectable 10–50 ms snap values, and open/close controls in `Debug.lua`, then in-game test marker dragging and playback authoring.
+In game on current `dev`, verify: both debug windows can close/reopen; all snap choices work; fire markers and `END` drag on the 2.0s ruler without crossing; +/- nudges use the selected snap; `Play Burn` follows the authored marker timing; and `Print Values` outputs the chosen timestamps. If that UX feels good, move on to the higher-frame fire and burned-icon collapse artwork/runtime.
