@@ -8,6 +8,16 @@ if not bin or not bin.GetTuningOffsets or not bin.SetTuningOffsets or not bin.Pl
   return
 end
 
+local function D_(key)
+  if pfUI.env and pfUI.env.T and pfUI.env.T[key] then
+    return pfUI.env.T[key]
+  end
+  if pfUI_translation and pfUI_translation.enUS and pfUI_translation.enUS[key] then
+    return pfUI_translation.enUS[key]
+  end
+  return key
+end
+
 local frame = CreateFrame("Frame", "pfUI_VendorTweaks_Debug", UIParent)
 frame:SetWidth(270)
 frame:SetHeight(205)
@@ -30,7 +40,7 @@ frame:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
 
 local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 title:SetPoint("TOP", frame, "TOP", 0, -10)
-title:SetText("pfUI VendorTweaks Burn Debug")
+title:SetText(D_("VT_DEBUG_TITLE"))
 
 local function MakeButton(text, width, x, y, onClick)
   local button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
@@ -113,31 +123,31 @@ local function MakeOffsetRow(index, labelText, y)
   controls[index] = { edit = edit }
 end
 
-MakeButton("Play Burn", 86, 12, -34, function()
+MakeButton(D_("VT_DEBUG_PLAY"), 86, 12, -34, function()
   bin:PlayPreview()
 end)
 
-MakeButton("Print Values", 86, 104, -34, function()
+MakeButton(D_("VT_DEBUG_PRINT"), 86, 104, -34, function()
   local ix, iy, fx, fy = GetOffsets()
   DEFAULT_CHAT_FRAME:AddMessage(string.format(
-    "|cff66ccff[pfUI VendorTweaks Debug]|r item=(%d, %d) fire=(%d, %d)",
+    "|cff66ccff[" .. D_("VT_DEBUG_PREFIX") .. "]|r " .. D_("VT_DEBUG_VALUES"),
     ix, iy, fx, fy
   ))
 end)
 
-MakeButton("Reset", 60, 196, -34, function()
+MakeButton(D_("VT_DEBUG_RESET"), 60, 196, -34, function()
   bin:ResetTuningOffsets()
   Refresh()
   bin:PlayPreview()
 end)
 
-MakeOffsetRow(1, "Item X", -70)
-MakeOffsetRow(2, "Item Y", -98)
-MakeOffsetRow(3, "Fire X", -126)
-MakeOffsetRow(4, "Fire Y", -154)
+MakeOffsetRow(1, D_("VT_DEBUG_ITEM_X"), -70)
+MakeOffsetRow(2, D_("VT_DEBUG_ITEM_Y"), -98)
+MakeOffsetRow(3, D_("VT_DEBUG_FIRE_X"), -126)
+MakeOffsetRow(4, D_("VT_DEBUG_FIRE_Y"), -154)
 
 local hint = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 hint:SetPoint("BOTTOM", frame, "BOTTOM", 0, 10)
-hint:SetText("Enter = exact value   +/- = 1 UI unit")
+hint:SetText(D_("VT_DEBUG_HINT"))
 
 Refresh()
