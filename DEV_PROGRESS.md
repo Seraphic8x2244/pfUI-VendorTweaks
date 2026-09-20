@@ -5,25 +5,21 @@
 - Version: `0.1.27-dev`
 - Repository/addon technical name: `pfUI_VendorTweaks`
 - User-facing name: `pfUI VendorTweaks`
-- Goal: Promote the user-approved restored 8-frame build to stable `main` using `DEV_GUIDE.md`.
+- Stable release: `main` is now `0.1.27` at `b2a90beb03464494b2cd5c699f10a0a2bd82f26b`.
 - Workflow: Canonical `VanillaTemplate` development contract; `DEV_GUIDE.md` is authoritative.
 
 ## Recent Commits
+- `d3b272050cf75665895ce3113771946f280bef8b` — Record 0.1.27 stable approval.
 - `435bc1873bc6de201798855c1edfe84d0e9bfa99` — Record restored 8-frame burn test state.
 - `07ea0eb4e57a89c9893566d6eb328b79ffad5ec2` — Record debug timing ruler test state.
-- `070a39ffbef0063c96bd04be2963fc73946b6796` — Add draggable 2.0s burn timing ruler.
+- Stable `main`: `b2a90beb03464494b2cd5c699f10a0a2bd82f26b` — Release 0.1.27.
 
-## Stable Candidate
-- User tested current restored `dev` and explicitly approved it for promotion to `main`.
+## Released / User Verified
+- Current restored 8-frame build was user tested and explicitly approved for stable release.
 - Production Auto-Delete feedback uses the existing single 8-frame burn strip:
   - `artwork/pfUI_VendorTweaks_Burn.tga`
   - `BIN_FRAME_COUNT = 8`
   - approximately 1.0 second default runtime.
-- The speculative 16-frame fire + 12-frame ash/two-part replacement is not present.
-- No `pfUI_VendorTweaks_Fire.tga` or `pfUI_VendorTweaks_Ash.tga` exists on current `dev`.
-
-## Completed / User Verified
-- Current restored 8-frame build approved for stable release.
 - Auto-Delete feedback checkbox placement and clickability.
 - Auto-Vendor feedback layout.
 - Sell-chat ON/OFF behaviour.
@@ -31,24 +27,27 @@
 - Technical identifiers normalized to `pfUI_VendorTweaks`.
 - Dev debug controls/timeline framework works with the existing 8-frame animation.
 
+## Stable 0.1.27 Verification
+- `main` TOC title has no `-dev`.
+- `main` TOC version is `0.1.27`.
+- `DEV_GUIDE.md`, `DEV_PROGRESS.md`, and `Debug.lua` are absent from `main`.
+- `Debug.lua` is absent from the stable TOC.
+- Stable `pfUI_VendorTweaks.lua` is byte-identical to the approved dev runtime.
+- Stable artwork is byte-identical to approved dev and contains only `pfUI_VendorTweaks_Burn.tga`.
+- No speculative Fire/Ash two-part replacement is present in `main`.
+
 ## Dev-only Tooling
-- `Debug.lua` is loaded only on `dev`.
+- `Debug.lua` remains on `dev` only.
 - `/vtdebug`, `/vtdebug timeline`, and `/vtdebug all` expose the 8-frame timing/position authoring tools.
 - The ruler exposes 8 burn frames plus `END`.
 - Debug functionality is not required for normal addon operation.
+
+## Untested Work
+- None pending for the released `0.1.27` state.
 
 ## Deferred
 - Longer/higher-frame/two-part burn replacement is shelved.
 - Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so avoid heuristic matching.
 
-## Stable Promotion
-For `main`, preserve the approved functional runtime and perform only the documented cleanup:
-- TOC Title: remove `-dev`.
-- TOC Version: `0.1.27-dev` -> `0.1.27`.
-- Remove `DEV_GUIDE.md`.
-- Remove `DEV_PROGRESS.md`.
-- Remove `Debug.lua` and its TOC entry.
-- Do not include speculative work or unrelated refactors.
-
 ## Exact Next Step
-Create the stable `main` tree from this approved `dev` state with only the documented dev-only cleanup, then verify `main` is directly installable and contains the same runtime code/assets as approved `dev`.
+No immediate release work. Future development starts from `dev` at `0.1.27-dev`; keep `main` at the known-good `0.1.27` release until a later dev state is explicitly user-approved for promotion.
