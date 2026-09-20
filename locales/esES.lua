@@ -1,11 +1,11 @@
--- pfUI-VendorTweaks localisation: esES
+-- pfUI VendorTweaks localisation: esES
 -- Keep format specifiers unchanged: %d %s
 
 if not pfUI_translation then return end
 
 pfUI_translation["esES"] = pfUI_translation["esES"] or {}
 local entries = {
-    ["VT_VENDOR_TWEAKS"] = "VendorTweaks",
+    ["VT_VENDOR_TWEAKS"] = "pfUI VendorTweaks",
     ["VT_THROTTLE_AUTOSELL"] = "Regular venta automática de pfUI",
     ["VT_AUTO_VENDOR"] = "Venta automática",
     ["VT_AUTO_DELETE"] = "Borrado automático",
@@ -19,7 +19,7 @@ local entries = {
     ["VT_SOLD"] = "Vendido: %s",
     ["VT_SHOW_DELETE_ANIMATION"] = "Mostrar animación de borrado",
     ["VT_DELETED"] = "Eliminado: %s",
-    ["VT_BIN"] = "VendorTweaks Bin",
+    ["VT_BIN"] = "pfUI VendorTweaks Bin",
 }
 
 for key, value in pairs(entries) do
