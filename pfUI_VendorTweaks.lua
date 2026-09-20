@@ -4,7 +4,7 @@
 
 if not pfUI then return end
 
-local ADDON_NAME = "pfUI-VendorTweaks"
+local ADDON_NAME = "pfUI_VendorTweaks"
 local ADDON_VERSION = GetAddOnMetadata(ADDON_NAME, "Version")
 local DB = nil
 local missingIconIDs = {}
@@ -258,7 +258,7 @@ end
 -- -----------------------------------------------------------------------------
 local sellQueue = {}
 local sellTimer = 0
-local worker = CreateFrame("Frame", "pfVendorTweaksWorker", UIParent)
+local worker = CreateFrame("Frame", "pfUI_VendorTweaks_Worker", UIParent)
 worker:Hide()
 
 worker:SetScript("OnUpdate", function()
@@ -345,7 +345,7 @@ local capturedMerchantSellgrays = false
 local hookedVendorButton = nil
 local originalVendorButtonOnClick = nil
 
-local function VendorTweaksGreyButtonClick()
+local function pfUI_VendorTweaks_GreyButtonClick()
   StartSellQueue(true, false)
 end
 
@@ -402,7 +402,7 @@ local function HookPfUIVendorButton()
   if not button then return end
 
   local current = button:GetScript("OnClick")
-  if hookedVendorButton == button and current == VendorTweaksGreyButtonClick then
+  if hookedVendorButton == button and current == pfUI_VendorTweaks_GreyButtonClick then
     return
   end
 
@@ -416,7 +416,7 @@ local function HookPfUIVendorButton()
   originalVendorButtonOnClick = current
 
   -- Preserve pfUI's button and tooltip; only replace the action.
-  button:SetScript("OnClick", VendorTweaksGreyButtonClick)
+  button:SetScript("OnClick", pfUI_VendorTweaks_GreyButtonClick)
 end
 
 local function ApplyGreyTakeover()
@@ -530,23 +530,35 @@ end
 -- is registered with pfUI's movable system, so pfUI Unlock Mode owns position,
 -- scale and reset behaviour exactly like native pfUI movable frames.
 -- -----------------------------------------------------------------------------
-local binFrame = CreateFrame("Frame", "pfVendorTweaksBin", UIParent)
+local BIN_ICON_DEFAULT_X = 0
+local BIN_ICON_DEFAULT_Y = -12
+local BIN_BURN_DEFAULT_X = 0
+local BIN_BURN_DEFAULT_Y = 0
+
+local binIconX = BIN_ICON_DEFAULT_X
+local binIconY = BIN_ICON_DEFAULT_Y
+local binBurnX = BIN_BURN_DEFAULT_X
+local binBurnY = BIN_BURN_DEFAULT_Y
+local binIconWiping = false
+local binLastTexture = "Interface\\Icons\\INV_Misc_QuestionMark"
+
+local binFrame = CreateFrame("Frame", "pfUI_VendorTweaks_Bin", UIParent)
 binFrame:SetWidth(64)
 binFrame:SetHeight(64)
 binFrame:SetPoint("CENTER", UIParent, "CENTER", 0, -120)
 binFrame:SetFrameStrata("HIGH")
 binFrame:EnableMouse(false)
 
-local binIcon = binFrame:CreateTexture(nil, "ARTWORK")
+local binIcon = binFrame:CreateTexture("pfUI_VendorTweaks_BinIcon", "ARTWORK")
 binIcon:SetWidth(32)
 binIcon:SetHeight(32)
-binIcon:SetPoint("CENTER", binFrame, "CENTER", 0, -12)
 binIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
 binIcon:Hide()
 
-local binBurn = binFrame:CreateTexture(nil, "OVERLAY")
-binBurn:SetAllPoints(binFrame)
-binBurn:SetTexture("Interface\\AddOns\\pfUI-VendorTweaks\\artwork\\vendor-tweaks-burn.tga")
+local binBurn = binFrame:CreateTexture("pfUI_VendorTweaks_BinBurn", "OVERLAY")
+binBurn:SetWidth(64)
+binBurn:SetHeight(64)
+binBurn:SetTexture("Interface\\AddOns\\pfUI_VendorTweaks\\artwork\\vendor-tweaks-burn.tga")
 binBurn:Hide()
 
 local BIN_FRAME_COUNT = 8
@@ -557,6 +569,20 @@ local binFrameIndex = 0
 
 local function BinUnlockVisible()
   return pfUI.unlock and pfUI.unlock.IsShown and pfUI.unlock:IsShown()
+end
+
+local function ApplyBinBurnPosition()
+  binBurn:ClearAllPoints()
+  binBurn:SetPoint("CENTER", binFrame, "CENTER", binBurnX, binBurnY)
+end
+
+local function ApplyBinIconPosition()
+  binIcon:ClearAllPoints()
+  if binIconWiping then
+    binIcon:SetPoint("BOTTOM", binFrame, "CENTER", binIconX, binIconY - 16)
+  else
+    binIcon:SetPoint("CENTER", binFrame, "CENTER", binIconX, binIconY)
+  end
 end
 
 local function SetBinBurnFrame(index)
@@ -572,13 +598,14 @@ local function ResetBinVisual()
   binRunning = false
   binElapsed = 0
   binFrameIndex = 0
+  binIconWiping = false
   binIcon:SetAlpha(1)
   binIcon:SetVertexColor(1, 1, 1, 1)
   binIcon:SetTexCoord(0, 1, 0, 1)
-  binIcon:ClearAllPoints()
-  binIcon:SetPoint("CENTER", binFrame, "CENTER", 0, -12)
   binIcon:SetWidth(32)
   binIcon:SetHeight(32)
+  ApplyBinIconPosition()
+  ApplyBinBurnPosition()
   binIcon:Hide()
   binBurn:Hide()
   if not BinUnlockVisible() then
@@ -587,27 +614,57 @@ local function ResetBinVisual()
 end
 
 local function PlayBinAnimation(id, texture)
-  local cached = DB and DB.items and DB.items[id]
+  local cached = DB and DB.items and id and DB.items[id]
   local cachedTexture = type(cached) == "table" and cached.icon or nil
+  local chosenTexture = texture or cachedTexture or binLastTexture or "Interface\\Icons\\INV_Misc_QuestionMark"
 
+  binLastTexture = chosenTexture
   binElapsed = 0
   binRunning = true
   binFrameIndex = 0
+  binIconWiping = false
 
-  binIcon:SetTexture(texture or cachedTexture or "Interface\\Icons\\INV_Misc_QuestionMark")
+  binIcon:SetTexture(chosenTexture)
   binIcon:SetAlpha(1)
   binIcon:SetVertexColor(1, 1, 1, 1)
   binIcon:SetTexCoord(0, 1, 0, 1)
-  binIcon:ClearAllPoints()
-  binIcon:SetPoint("CENTER", binFrame, "CENTER", 0, -12)
   binIcon:SetWidth(32)
   binIcon:SetHeight(32)
+  ApplyBinIconPosition()
   binIcon:Show()
 
+  ApplyBinBurnPosition()
   SetBinBurnFrame(1)
   binBurn:Show()
   binFrame:Show()
+end
 
+-- Narrow runtime controls used by dev-only Debug.lua. Normal addon behaviour
+-- does not depend on these methods.
+function binFrame:SetTuningOffsets(iconX, iconY, burnX, burnY)
+  if tonumber(iconX) then binIconX = tonumber(iconX) end
+  if tonumber(iconY) then binIconY = tonumber(iconY) end
+  if tonumber(burnX) then binBurnX = tonumber(burnX) end
+  if tonumber(burnY) then binBurnY = tonumber(burnY) end
+  ApplyBinIconPosition()
+  ApplyBinBurnPosition()
+end
+
+function binFrame:GetTuningOffsets()
+  return binIconX, binIconY, binBurnX, binBurnY
+end
+
+function binFrame:ResetTuningOffsets()
+  binIconX = BIN_ICON_DEFAULT_X
+  binIconY = BIN_ICON_DEFAULT_Y
+  binBurnX = BIN_BURN_DEFAULT_X
+  binBurnY = BIN_BURN_DEFAULT_Y
+  ApplyBinIconPosition()
+  ApplyBinBurnPosition()
+end
+
+function binFrame:PlayPreview()
+  PlayBinAnimation(nil, binLastTexture)
 end
 
 binFrame:SetScript("OnUpdate", function()
@@ -631,18 +688,16 @@ binFrame:SetScript("OnUpdate", function()
     SetBinBurnFrame(frame)
   end
 
-  -- Leave the item readable for the opening beat. During the burn phase,
-  -- char it fully to black and wipe it away from top to bottom. The bottom
-  -- edge stays fixed so the disappearance travels downward instead of
-  -- collapsing toward the texture centre.
+  -- Existing burn test behaviour is preserved while Debug.lua tunes the
+  -- relative icon/fire placement. The revised animation will replace this.
   local burnStart = 3 / BIN_FRAME_COUNT
   if progress <= burnStart then
+    binIconWiping = false
     binIcon:SetAlpha(1)
     binIcon:SetVertexColor(1, 1, 1, 1)
     binIcon:SetTexCoord(0, 1, 0, 1)
-    binIcon:ClearAllPoints()
-    binIcon:SetPoint("CENTER", binFrame, "CENTER", 0, -12)
     binIcon:SetHeight(32)
+    ApplyBinIconPosition()
   else
     local burn = (progress - burnStart) / (1 - burnStart)
     if burn > 1 then burn = 1 end
@@ -652,12 +707,12 @@ binFrame:SetScript("OnUpdate", function()
     if char > 1 then char = 1 end
     local shade = 1 - char
 
+    binIconWiping = true
     binIcon:SetAlpha(1)
     binIcon:SetVertexColor(shade, shade, shade, 1)
     binIcon:SetTexCoord(0, 1, burn, 1)
-    binIcon:ClearAllPoints()
-    binIcon:SetPoint("BOTTOM", binFrame, "CENTER", 0, -28)
     binIcon:SetHeight(math.max(0.5, 32 * remain))
+    ApplyBinIconPosition()
   end
 end)
 
@@ -666,7 +721,7 @@ if pfUI.api and pfUI.api.UpdateMovable then
 end
 binFrame:Hide()
 
-local deleteWorker = CreateFrame("Frame", "pfVendorTweaksDeleteWorker", UIParent)
+local deleteWorker = CreateFrame("Frame", "pfUI_VendorTweaks_DeleteWorker", UIParent)
 deleteWorker:Hide()
 
 local function StopDeleteWorker(clearPending)
@@ -836,7 +891,7 @@ local function BuildComponentsPanel(parent)
       ApplyGreyTakeover()
     end)
 
-  local slider = CreateFrame("Slider", "pfVT_ComponentSpeedSlider", parent, "OptionsSliderTemplate")
+  local slider = CreateFrame("Slider", "pfUI_VendorTweaks_ComponentSpeedSlider", parent, "OptionsSliderTemplate")
   -- Align the slider to the right edge of the two list columns.
   slider:SetPoint("RIGHT", takeover, "LEFT", 415, 0)
   slider:SetWidth(150)

@@ -5,12 +5,13 @@
 ## Dependencies: pfUI
 ## SavedVariablesPerCharacter: pfUI_VendorTweaks
 
-locales\enUS.lua
-locales\deDE.lua
-locales\esES.lua
-locales\frFR.lua
-locales\koKR.lua
-locales\ruRU.lua
-locales\zhCN.lua
-locales\zhTW.lua
-pfUI-VendorTweaks.lua
+locales\\enUS.lua
+locales\\deDE.lua
+locales\\esES.lua
+locales\\frFR.lua
+locales\\koKR.lua
+locales\\ruRU.lua
+locales\\zhCN.lua
+locales\\zhTW.lua
+pfUI_VendorTweaks.lua
+Debug.lua
