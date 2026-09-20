@@ -3,7 +3,7 @@
 ## Current
 - Branch: `dev`
 - Version: `0.1.27-dev`
-- Goal: Verify the `pfUI VendorTweaks` branding rename in game, then begin the revised Auto-Delete animation rework.
+- Goal: Normalize all technical identifiers to `pfUI_VendorTweaks` and add the first dev-only `Debug.lua` burn-position tuning panel.
 - Workflow: Migrated to the canonical `VanillaTemplate` development contract.
 
 ## Recent Commits
@@ -59,6 +59,8 @@
 - Sell-chat ON/OFF behavior is already confirmed working.
 
 ## Planned / To-do
+- Normalize addon technical identifiers to `pfUI_VendorTweaks`: addon basename, TOC/Lua filenames, metadata identifier, frame/global names and addon texture path.
+- Add dev-only `Debug.lua` with replay control plus independent item-icon X/Y and fire-sprite X/Y tuning.
 - After the migration smoke test, implement the revised Auto-Delete animation:
   - live item icon remains readable during ignition.
   - fire rapidly grows to obscure the icon.
@@ -74,4 +76,4 @@
 - Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so avoid heuristic matching.
 
 ## Exact Next Step
-In-game smoke-test the `pfUI VendorTweaks` rename: addon-list title, pfUI panel/title, chat prefix and movable Bin label. If clean, begin the revised Auto-Delete animation implementation.
+Implement the `pfUI_VendorTweaks` identifier normalization and dev-only burn tuning panel, then test the debug replay and positioning controls in game.
