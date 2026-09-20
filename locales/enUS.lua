@@ -20,6 +20,17 @@ local entries = {
     ["VT_SHOW_DELETE_ANIMATION"] = "Show delete animation",
     ["VT_DELETED"] = "Deleted: %s",
     ["VT_BIN"] = "pfUI VendorTweaks Bin",
+    ["VT_DEBUG_TITLE"] = "pfUI VendorTweaks Burn Debug",
+    ["VT_DEBUG_PLAY"] = "Play Burn",
+    ["VT_DEBUG_PRINT"] = "Print Values",
+    ["VT_DEBUG_RESET"] = "Reset",
+    ["VT_DEBUG_ITEM_X"] = "Item X",
+    ["VT_DEBUG_ITEM_Y"] = "Item Y",
+    ["VT_DEBUG_FIRE_X"] = "Fire X",
+    ["VT_DEBUG_FIRE_Y"] = "Fire Y",
+    ["VT_DEBUG_HINT"] = "Enter = exact value   +/- = 1 UI unit",
+    ["VT_DEBUG_PREFIX"] = "pfUI VendorTweaks Debug",
+    ["VT_DEBUG_VALUES"] = "item=(%d, %d) fire=(%d, %d)",
 }
 
 for key, value in pairs(entries) do
