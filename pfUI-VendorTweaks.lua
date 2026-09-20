@@ -1,4 +1,4 @@
--- pfUI-VendorTweaks v0.1.27-dev9
+-- pfUI-VendorTweaks v0.1.27-dev10
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
@@ -24,6 +24,7 @@ local function InitDB()
   -- v0.1.20: takeoverGreys is also the Auto-Sell ON switch; retire the old split flag.
   DB.autoSellGreys = nil
   if DB.autoVendor == nil then DB.autoVendor = "1" end
+  if DB.showSellChat == nil then DB.showSellChat = "1" end
   if DB.autoDelete == nil then DB.autoDelete = "1" end
   if DB.showDeleteAnimation == nil then DB.showDeleteAnimation = "1" end
   if DB.showDeleteChat == nil then DB.showDeleteChat = "1" end
@@ -279,6 +280,9 @@ worker:SetScript("OnUpdate", function()
   -- Fail closed if the player moved/replaced an item after queue creation.
   if currentID and currentID == item.id then
     UseContainerItem(item.bag, item.slot)
+    if Enabled("showSellChat") then
+      DEFAULT_CHAT_FRAME:AddMessage("|cff33ff33[VendorTweaks]|r " .. string.format(T_("Sold: %s"), currentLink))
+    end
   end
 end)
 
@@ -799,6 +803,27 @@ local function BuildComponentsPanel(parent)
     return cb
   end
 
+  local function MakeDisabledCheckbox(anchor, y, text)
+    local cb = CreateFrame("CheckButton", nil, parent)
+    cb:SetWidth(20)
+    cb:SetHeight(20)
+    cb:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, y)
+    if pfUI.api and pfUI.api.SkinCheckbox then pfUI.api.SkinCheckbox(cb) end
+    AttachCheckboxMark(cb)
+
+    local label = cb:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    label:SetPoint("LEFT", cb, "RIGHT", 5, 0)
+    label:SetText(text)
+    cb.label = label
+
+    cb:SetChecked(false)
+    UpdateCheckboxMark(cb)
+    cb:Disable()
+    cb:SetAlpha(.5)
+
+    return cb
+  end
+
   -- Enabling this is both the takeover switch and the Auto-Sell ON switch.
   -- When disabled, pfUI's own Auto-Sell setting and behaviour are restored intact.
   local takeover = MakeCheckbox(title, -12,
@@ -828,6 +853,12 @@ local function BuildComponentsPanel(parent)
   -- The list toggles double as the two side-by-side section subheaders.
   local autoVendor = MakeCheckbox(takeover, -32,
     T_("Auto-Vendor"), "autoVendor")
+
+  local showSellAnimation = MakeDisabledCheckbox(autoVendor, -2,
+    T_("Show sell animation"))
+
+  local showSellChat = MakeCheckbox(showSellAnimation, -2,
+    T_("Show sell message in chat"), "showSellChat")
 
   local autoDelete = CreateFrame("CheckButton", nil, parent)
   autoDelete:SetWidth(20)
@@ -924,7 +955,7 @@ local function BuildComponentsPanel(parent)
     return frame
   end
 
-  local vendorDrop = MakeDropSlot(autoVendor, T_("Drop item here to vendor"))
+  local vendorDrop = MakeDropSlot(showSellChat, T_("Drop item here to vendor"))
   local deleteDrop = MakeDropSlot(showDeleteChat, T_("Drop item here to delete"))
 
   local LIST_WIDTH = 195
@@ -1091,6 +1122,7 @@ local function BuildComponentsPanel(parent)
 
     SetCheckboxChecked(takeover, Enabled("takeoverGreys"))
     SetCheckboxChecked(autoVendor, Enabled("autoVendor"))
+    SetCheckboxChecked(showSellChat, Enabled("showSellChat"))
     SetCheckboxChecked(autoDelete, Enabled("autoDelete"))
     SetCheckboxChecked(showDeleteAnimation, Enabled("showDeleteAnimation"))
     SetCheckboxChecked(showDeleteChat, Enabled("showDeleteChat"))
