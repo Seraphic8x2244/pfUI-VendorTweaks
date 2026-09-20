@@ -566,6 +566,8 @@ local BIN_DURATION = 1.00
 local binElapsed = 0
 local binRunning = false
 local binFrameIndex = 0
+local binDebugFrameTimes = nil
+local binDebugEndTime = nil
 
 local function BinUnlockVisible()
   return pfUI.unlock and pfUI.unlock.IsShown and pfUI.unlock:IsShown()
@@ -635,7 +637,11 @@ local function PlayBinAnimation(id, texture)
 
   ApplyBinBurnPosition()
   SetBinBurnFrame(1)
-  binBurn:Show()
+  if binDebugFrameTimes and binDebugFrameTimes[1] and binDebugFrameTimes[1] > 0 then
+    binBurn:Hide()
+  else
+    binBurn:Show()
+  end
   binFrame:Show()
 end
 
@@ -663,6 +669,43 @@ function binFrame:ResetTuningOffsets()
   ApplyBinBurnPosition()
 end
 
+function binFrame:GetDebugFireFrameCount()
+  return BIN_FRAME_COUNT
+end
+
+function binFrame:GetDebugDefaultDurationMs()
+  return math.floor((BIN_DURATION * 1000) + 0.5)
+end
+
+function binFrame:SetDebugFireTimeline(frameTimesMs, endTimeMs)
+  if type(frameTimesMs) ~= "table" then return false end
+
+  local times = {}
+  local previous = -1
+  for i = 1, BIN_FRAME_COUNT do
+    local ms = tonumber(frameTimesMs[i])
+    if not ms or ms < 0 or ms <= previous then
+      return false
+    end
+    times[i] = ms / 1000
+    previous = ms
+  end
+
+  local finish = tonumber(endTimeMs)
+  if not finish or finish <= previous then
+    return false
+  end
+
+  binDebugFrameTimes = times
+  binDebugEndTime = finish / 1000
+  return true
+end
+
+function binFrame:ClearDebugFireTimeline()
+  binDebugFrameTimes = nil
+  binDebugEndTime = nil
+end
+
 function binFrame:PlayPreview()
   PlayBinAnimation(nil, binLastTexture)
 end
@@ -677,15 +720,36 @@ binFrame:SetScript("OnUpdate", function()
   if not binRunning then return end
 
   binElapsed = binElapsed + arg1
-  local progress = binElapsed / BIN_DURATION
+  local duration = binDebugEndTime or BIN_DURATION
+  local progress = binElapsed / duration
   if progress >= 1 then
     ResetBinVisual()
     return
   end
 
-  local frame = math.floor(progress * BIN_FRAME_COUNT) + 1
-  if frame ~= binFrameIndex then
-    SetBinBurnFrame(frame)
+  local frame = nil
+  if binDebugFrameTimes then
+    for i = 1, BIN_FRAME_COUNT do
+      if binElapsed >= binDebugFrameTimes[i] then
+        frame = i
+      else
+        break
+      end
+    end
+
+    if frame then
+      if frame ~= binFrameIndex then
+        SetBinBurnFrame(frame)
+      end
+      if not binBurn:IsShown() then binBurn:Show() end
+    else
+      binBurn:Hide()
+    end
+  else
+    frame = math.floor(progress * BIN_FRAME_COUNT) + 1
+    if frame ~= binFrameIndex then
+      SetBinBurnFrame(frame)
+    end
   end
 
   -- Existing burn test behaviour is preserved while Debug.lua tunes the
