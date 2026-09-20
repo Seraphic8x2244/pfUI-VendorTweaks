@@ -5,11 +5,16 @@
 - Version: `0.1.27-dev`
 - Repository/addon technical name: `pfUI_VendorTweaks`
 - User-facing name: `pfUI VendorTweaks`
-- Goal: User-test the restored 8-frame Auto-Delete burn and its dev-only timing/position authoring tools, then promote this approved functional state to stable `main` using `DEV_GUIDE.md`.
+- Goal: Promote the user-approved restored 8-frame build to stable `main` using `DEV_GUIDE.md`.
 - Workflow: Canonical `VanillaTemplate` development contract; `DEV_GUIDE.md` is authoritative.
 
-## Current Code State
-- `dev` was restored to the functional state at `07ea0eb4e57a89c9893566d6eb328b79ffad5ec2`.
+## Recent Commits
+- `435bc1873bc6de201798855c1edfe84d0e9bfa99` — Record restored 8-frame burn test state.
+- `07ea0eb4e57a89c9893566d6eb328b79ffad5ec2` — Record debug timing ruler test state.
+- `070a39ffbef0063c96bd04be2963fc73946b6796` — Add draggable 2.0s burn timing ruler.
+
+## Stable Candidate
+- User tested current restored `dev` and explicitly approved it for promotion to `main`.
 - Production Auto-Delete feedback uses the existing single 8-frame burn strip:
   - `artwork/pfUI_VendorTweaks_Burn.tga`
   - `BIN_FRAME_COUNT = 8`
@@ -17,52 +22,33 @@
 - The speculative 16-frame fire + 12-frame ash/two-part replacement is not present.
 - No `pfUI_VendorTweaks_Fire.tga` or `pfUI_VendorTweaks_Ash.tga` exists on current `dev`.
 
-## Debug Authoring Tool
-- `Debug.lua` is dev-only and loaded after the main addon.
-- `/vtdebug` toggles the main controls.
-- `/vtdebug timeline` toggles the 2.0-second timing ruler.
-- `/vtdebug all` opens both.
-- The ruler exposes the existing 8 burn frames plus `END`.
-- Snap choices: 10/15/20/25/30/35/40/45/50 ms.
-- `Play Burn` previews the authored 8-frame timing.
-- `Print Values` reports placement offsets and frame timestamps.
-- `Reset` restores the default timing and offsets.
-- Main runtime exposes only the narrow debug methods needed by `Debug.lua`; normal addon behaviour does not depend on `Debug.lua`.
-
 ## Completed / User Verified
+- Current restored 8-frame build approved for stable release.
 - Auto-Delete feedback checkbox placement and clickability.
 - Auto-Vendor feedback layout.
 - Sell-chat ON/OFF behaviour.
 - User-facing branding: `pfUI VendorTweaks`.
 - Technical identifiers normalized to `pfUI_VendorTweaks`.
-- Existing vendor queue, Auto-Delete safety logic, vendor-purchase exemption and pfUI integration were not intentionally refactored during the workflow migration.
-- Dev debug controls/timeline UX was previously tested sufficiently to establish that the authoring framework works.
+- Dev debug controls/timeline framework works with the existing 8-frame animation.
 
-## Implemented / Awaiting Current In-Game Test
-- Restored current `dev` after shelving the unfinished longer/two-part burn replacement.
-- Current repository checks confirm:
-  - `BIN_FRAME_COUNT = 8`;
-  - single `pfUI_VendorTweaks_Burn.tga` asset;
-  - 8-frame debug timeline API;
-  - no ash runtime/debug API;
-  - no Fire/Ash replacement assets.
-- This restored branch state still needs the user's final in-game test before stable approval.
+## Dev-only Tooling
+- `Debug.lua` is loaded only on `dev`.
+- `/vtdebug`, `/vtdebug timeline`, and `/vtdebug all` expose the 8-frame timing/position authoring tools.
+- The ruler exposes 8 burn frames plus `END`.
+- Debug functionality is not required for normal addon operation.
 
-## Stable Promotion Rules
-After the user explicitly approves this exact dev state as stable:
-- Promote the same approved functional code to `main`.
-- Change TOC Title to remove `-dev`.
-- Change TOC Version from `0.1.27-dev` to `0.1.27`.
+## Deferred
+- Longer/higher-frame/two-part burn replacement is shelved.
+- Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so avoid heuristic matching.
+
+## Stable Promotion
+For `main`, preserve the approved functional runtime and perform only the documented cleanup:
+- TOC Title: remove `-dev`.
+- TOC Version: `0.1.27-dev` -> `0.1.27`.
 - Remove `DEV_GUIDE.md`.
 - Remove `DEV_PROGRESS.md`.
 - Remove `Debug.lua` and its TOC entry.
-- Do not include knowingly untested/speculative work.
-- Do not invent another version, redesign the release, or perform unrelated refactors during promotion.
-- The TOC remains the single version source.
-
-## Deferred
-- Longer/higher-frame/two-part burn replacement, including separate fire and burned/ash artwork, is shelved.
-- Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so avoid heuristic matching.
+- Do not include speculative work or unrelated refactors.
 
 ## Exact Next Step
-User installs current `dev` and tests the restored 8-frame burn plus the debug controls/timing ruler. If the user explicitly approves this exact state as stable, perform the documented `dev` -> `main` cleanup/promotion without changing functional runtime behaviour.
+Create the stable `main` tree from this approved `dev` state with only the documented dev-only cleanup, then verify `main` is directly installable and contains the same runtime code/assets as approved `dev`.
