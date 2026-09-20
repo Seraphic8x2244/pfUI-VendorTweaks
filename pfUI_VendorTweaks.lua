@@ -1,10 +1,11 @@
--- pfUI-VendorTweaks v0.1.26
+-- pfUI VendorTweaks
 -- Vanilla WoW 1.12.1 / pfUI (Shagu + brues-code)
 -- Component-only external addon.
 
 if not pfUI then return end
 
-local ADDON_NAME = "pfUI-VendorTweaks"
+local ADDON_NAME = "pfUI_VendorTweaks"
+local ADDON_VERSION = GetAddOnMetadata(ADDON_NAME, "Version")
 local DB = nil
 local missingIconIDs = {}
 local iconRepairInitialized = false
@@ -24,7 +25,10 @@ local function InitDB()
   -- v0.1.20: takeoverGreys is also the Auto-Sell ON switch; retire the old split flag.
   DB.autoSellGreys = nil
   if DB.autoVendor == nil then DB.autoVendor = "1" end
+  if DB.showSellChat == nil then DB.showSellChat = "1" end
   if DB.autoDelete == nil then DB.autoDelete = "1" end
+  if DB.showDeleteAnimation == nil then DB.showDeleteAnimation = "1" end
+  if DB.showDeleteChat == nil then DB.showDeleteChat = "1" end
   if type(DB.vendorList) ~= "table" then DB.vendorList = {} end
   if type(DB.deleteList) ~= "table" then DB.deleteList = {} end
   if type(DB.items) ~= "table" then DB.items = {} end
@@ -72,6 +76,9 @@ end
 local function T_(key)
   if pfUI.env and pfUI.env.T and pfUI.env.T[key] then
     return pfUI.env.T[key]
+  end
+  if pfUI_translation and pfUI_translation.enUS and pfUI_translation.enUS[key] then
+    return pfUI_translation.enUS[key]
   end
   return key
 end
@@ -251,7 +258,7 @@ end
 -- -----------------------------------------------------------------------------
 local sellQueue = {}
 local sellTimer = 0
-local worker = CreateFrame("Frame", "pfVendorTweaksWorker", UIParent)
+local worker = CreateFrame("Frame", "pfUI_VendorTweaks_Worker", UIParent)
 worker:Hide()
 
 worker:SetScript("OnUpdate", function()
@@ -277,6 +284,9 @@ worker:SetScript("OnUpdate", function()
   -- Fail closed if the player moved/replaced an item after queue creation.
   if currentID and currentID == item.id then
     UseContainerItem(item.bag, item.slot)
+    if Enabled("showSellChat") then
+      DEFAULT_CHAT_FRAME:AddMessage("|cff33ff33[pfUI VendorTweaks]|r " .. string.format(T_("VT_SOLD"), currentLink))
+    end
   end
 end)
 
@@ -335,7 +345,7 @@ local capturedMerchantSellgrays = false
 local hookedVendorButton = nil
 local originalVendorButtonOnClick = nil
 
-local function VendorTweaksGreyButtonClick()
+local function pfUI_VendorTweaks_GreyButtonClick()
   StartSellQueue(true, false)
 end
 
@@ -392,7 +402,7 @@ local function HookPfUIVendorButton()
   if not button then return end
 
   local current = button:GetScript("OnClick")
-  if hookedVendorButton == button and current == VendorTweaksGreyButtonClick then
+  if hookedVendorButton == button and current == pfUI_VendorTweaks_GreyButtonClick then
     return
   end
 
@@ -406,7 +416,7 @@ local function HookPfUIVendorButton()
   originalVendorButtonOnClick = current
 
   -- Preserve pfUI's button and tooltip; only replace the action.
-  button:SetScript("OnClick", VendorTweaksGreyButtonClick)
+  button:SetScript("OnClick", pfUI_VendorTweaks_GreyButtonClick)
 end
 
 local function ApplyGreyTakeover()
@@ -513,7 +523,269 @@ local function InstallMerchantPurchaseHooks()
     end
   end
 end
-local deleteWorker = CreateFrame("Frame", "pfVendorTweaksDeleteWorker", UIParent)
+
+-- -----------------------------------------------------------------------------
+-- pfUI VendorTweaks Bin
+-- A tiny visual acknowledgement for successful Auto-Delete actions. The frame
+-- is registered with pfUI's movable system, so pfUI Unlock Mode owns position,
+-- scale and reset behaviour exactly like native pfUI movable frames.
+-- -----------------------------------------------------------------------------
+local BIN_ICON_DEFAULT_X = 0
+local BIN_ICON_DEFAULT_Y = -12
+local BIN_BURN_DEFAULT_X = 0
+local BIN_BURN_DEFAULT_Y = 0
+
+local binIconX = BIN_ICON_DEFAULT_X
+local binIconY = BIN_ICON_DEFAULT_Y
+local binBurnX = BIN_BURN_DEFAULT_X
+local binBurnY = BIN_BURN_DEFAULT_Y
+local binIconWiping = false
+local binLastTexture = "Interface\\Icons\\INV_Misc_QuestionMark"
+
+local binFrame = CreateFrame("Frame", "pfUI_VendorTweaks_Bin", UIParent)
+binFrame:SetWidth(64)
+binFrame:SetHeight(64)
+binFrame:SetPoint("CENTER", UIParent, "CENTER", 0, -120)
+binFrame:SetFrameStrata("HIGH")
+binFrame:EnableMouse(false)
+
+local binIcon = binFrame:CreateTexture("pfUI_VendorTweaks_BinIcon", "ARTWORK")
+binIcon:SetWidth(32)
+binIcon:SetHeight(32)
+binIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+binIcon:Hide()
+
+local binBurn = binFrame:CreateTexture("pfUI_VendorTweaks_BinBurn", "OVERLAY")
+binBurn:SetWidth(64)
+binBurn:SetHeight(64)
+binBurn:SetTexture("Interface\\AddOns\\pfUI_VendorTweaks\\artwork\\pfUI_VendorTweaks_Burn.tga")
+binBurn:Hide()
+
+local BIN_FRAME_COUNT = 8
+local BIN_DURATION = 1.00
+local binElapsed = 0
+local binRunning = false
+local binFrameIndex = 0
+local binDebugFrameTimes = nil
+local binDebugEndTime = nil
+
+local function BinUnlockVisible()
+  return pfUI.unlock and pfUI.unlock.IsShown and pfUI.unlock:IsShown()
+end
+
+local function ApplyBinBurnPosition()
+  binBurn:ClearAllPoints()
+  binBurn:SetPoint("CENTER", binFrame, "CENTER", binBurnX, binBurnY)
+end
+
+local function ApplyBinIconPosition()
+  binIcon:ClearAllPoints()
+  if binIconWiping then
+    binIcon:SetPoint("BOTTOM", binFrame, "CENTER", binIconX, binIconY - 16)
+  else
+    binIcon:SetPoint("CENTER", binFrame, "CENTER", binIconX, binIconY)
+  end
+end
+
+local function SetBinBurnFrame(index)
+  if index < 1 then index = 1 end
+  if index > BIN_FRAME_COUNT then index = BIN_FRAME_COUNT end
+  local left = (index - 1) / BIN_FRAME_COUNT
+  local right = index / BIN_FRAME_COUNT
+  binBurn:SetTexCoord(left, right, 0, 1)
+  binFrameIndex = index
+end
+
+local function ResetBinVisual()
+  binRunning = false
+  binElapsed = 0
+  binFrameIndex = 0
+  binIconWiping = false
+  binIcon:SetAlpha(1)
+  binIcon:SetVertexColor(1, 1, 1, 1)
+  binIcon:SetTexCoord(0, 1, 0, 1)
+  binIcon:SetWidth(32)
+  binIcon:SetHeight(32)
+  ApplyBinIconPosition()
+  ApplyBinBurnPosition()
+  binIcon:Hide()
+  binBurn:Hide()
+  if not BinUnlockVisible() then
+    binFrame:Hide()
+  end
+end
+
+local function PlayBinAnimation(id, texture)
+  local cached = DB and DB.items and id and DB.items[id]
+  local cachedTexture = type(cached) == "table" and cached.icon or nil
+  local chosenTexture = texture or cachedTexture or binLastTexture or "Interface\\Icons\\INV_Misc_QuestionMark"
+
+  binLastTexture = chosenTexture
+  binElapsed = 0
+  binRunning = true
+  binFrameIndex = 0
+  binIconWiping = false
+
+  binIcon:SetTexture(chosenTexture)
+  binIcon:SetAlpha(1)
+  binIcon:SetVertexColor(1, 1, 1, 1)
+  binIcon:SetTexCoord(0, 1, 0, 1)
+  binIcon:SetWidth(32)
+  binIcon:SetHeight(32)
+  ApplyBinIconPosition()
+  binIcon:Show()
+
+  ApplyBinBurnPosition()
+  SetBinBurnFrame(1)
+  if binDebugFrameTimes and binDebugFrameTimes[1] and binDebugFrameTimes[1] > 0 then
+    binBurn:Hide()
+  else
+    binBurn:Show()
+  end
+  binFrame:Show()
+end
+
+-- Narrow runtime controls used by dev-only Debug.lua. Normal addon behaviour
+-- does not depend on these methods.
+function binFrame:SetTuningOffsets(iconX, iconY, burnX, burnY)
+  if tonumber(iconX) then binIconX = tonumber(iconX) end
+  if tonumber(iconY) then binIconY = tonumber(iconY) end
+  if tonumber(burnX) then binBurnX = tonumber(burnX) end
+  if tonumber(burnY) then binBurnY = tonumber(burnY) end
+  ApplyBinIconPosition()
+  ApplyBinBurnPosition()
+end
+
+function binFrame:GetTuningOffsets()
+  return binIconX, binIconY, binBurnX, binBurnY
+end
+
+function binFrame:ResetTuningOffsets()
+  binIconX = BIN_ICON_DEFAULT_X
+  binIconY = BIN_ICON_DEFAULT_Y
+  binBurnX = BIN_BURN_DEFAULT_X
+  binBurnY = BIN_BURN_DEFAULT_Y
+  ApplyBinIconPosition()
+  ApplyBinBurnPosition()
+end
+
+function binFrame:GetDebugFireFrameCount()
+  return BIN_FRAME_COUNT
+end
+
+function binFrame:GetDebugDefaultDurationMs()
+  return math.floor((BIN_DURATION * 1000) + 0.5)
+end
+
+function binFrame:SetDebugFireTimeline(frameTimesMs, endTimeMs)
+  if type(frameTimesMs) ~= "table" then return false end
+
+  local times = {}
+  local previous = -1
+  for i = 1, BIN_FRAME_COUNT do
+    local ms = tonumber(frameTimesMs[i])
+    if not ms or ms < 0 or ms <= previous then
+      return false
+    end
+    times[i] = ms / 1000
+    previous = ms
+  end
+
+  local finish = tonumber(endTimeMs)
+  if not finish or finish <= previous then
+    return false
+  end
+
+  binDebugFrameTimes = times
+  binDebugEndTime = finish / 1000
+  return true
+end
+
+function binFrame:ClearDebugFireTimeline()
+  binDebugFrameTimes = nil
+  binDebugEndTime = nil
+end
+
+function binFrame:PlayPreview()
+  PlayBinAnimation(nil, binLastTexture)
+end
+
+binFrame:SetScript("OnUpdate", function()
+  -- pfUI creates the dragger lazily the first time Unlock Mode is opened.
+  -- Replace its compact frame-name label with the human-facing anchor name.
+  if BinUnlockVisible() and this.drag and this.drag.text then
+    this.drag.text:SetText(T_("VT_BIN"))
+  end
+
+  if not binRunning then return end
+
+  binElapsed = binElapsed + arg1
+  local duration = binDebugEndTime or BIN_DURATION
+  local progress = binElapsed / duration
+  if progress >= 1 then
+    ResetBinVisual()
+    return
+  end
+
+  local frame = nil
+  if binDebugFrameTimes then
+    for i = 1, BIN_FRAME_COUNT do
+      if binElapsed >= binDebugFrameTimes[i] then
+        frame = i
+      else
+        break
+      end
+    end
+
+    if frame then
+      if frame ~= binFrameIndex then
+        SetBinBurnFrame(frame)
+      end
+      if not binBurn:IsShown() then binBurn:Show() end
+    else
+      binBurn:Hide()
+    end
+  else
+    frame = math.floor(progress * BIN_FRAME_COUNT) + 1
+    if frame ~= binFrameIndex then
+      SetBinBurnFrame(frame)
+    end
+  end
+
+  -- Existing burn test behaviour is preserved while Debug.lua tunes the
+  -- relative icon/fire placement. The revised animation will replace this.
+  local burnStart = 3 / BIN_FRAME_COUNT
+  if progress <= burnStart then
+    binIconWiping = false
+    binIcon:SetAlpha(1)
+    binIcon:SetVertexColor(1, 1, 1, 1)
+    binIcon:SetTexCoord(0, 1, 0, 1)
+    binIcon:SetHeight(32)
+    ApplyBinIconPosition()
+  else
+    local burn = (progress - burnStart) / (1 - burnStart)
+    if burn > 1 then burn = 1 end
+
+    local remain = 1 - burn
+    local char = burn * 1.75
+    if char > 1 then char = 1 end
+    local shade = 1 - char
+
+    binIconWiping = true
+    binIcon:SetAlpha(1)
+    binIcon:SetVertexColor(shade, shade, shade, 1)
+    binIcon:SetTexCoord(0, 1, burn, 1)
+    binIcon:SetHeight(math.max(0.5, 32 * remain))
+    ApplyBinIconPosition()
+  end
+end)
+
+if pfUI.api and pfUI.api.UpdateMovable then
+  pfUI.api.UpdateMovable(binFrame)
+end
+binFrame:Hide()
+
+local deleteWorker = CreateFrame("Frame", "pfUI_VendorTweaks_DeleteWorker", UIParent)
 deleteWorker:Hide()
 
 local function StopDeleteWorker(clearPending)
@@ -538,7 +810,7 @@ local function ExecuteSafeDeleteStep()
       local id = GetIDFromLink(link)
 
       if id and pendingDeleteIDs[id] and DB.deleteList[id] then
-        local _, _, locked = GetContainerItemInfo(bag, slot)
+        local slotTexture, _, locked = GetContainerItemInfo(bag, slot)
         if locked then
           StopDeleteWorker(true)
           return
@@ -554,7 +826,12 @@ local function ExecuteSafeDeleteStep()
         end
 
         DeleteCursorItem()
-        DEFAULT_CHAT_FRAME:AddMessage("|cffff3333[VendorTweaks]|r " .. string.format(T_("Deleted: %s"), link))
+        if Enabled("showDeleteAnimation") then
+          PlayBinAnimation(id, slotTexture)
+        end
+        if Enabled("showDeleteChat") then
+          DEFAULT_CHAT_FRAME:AddMessage("|cffff3333[pfUI VendorTweaks]|r " .. string.format(T_("VT_DELETED"), link))
+        end
 
         -- Let the server settle this deletion before looking for another stack.
         deletePendingAt = GetTime() + DELETE_STEP_DELAY
@@ -584,7 +861,7 @@ local function BuildComponentsPanel(parent)
 
   local title = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -8)
-  title:SetText(T_("VendorTweaks"))
+  title:SetText(T_("VT_VENDOR_TWEAKS"))
 
   -- pfUI's modern checkbox skin builds its backdrop from child frames. A texture
   -- on the CheckButton itself can therefore render underneath that backdrop even
@@ -649,15 +926,36 @@ local function BuildComponentsPanel(parent)
     return cb
   end
 
+  local function MakeDisabledCheckbox(anchor, y, text)
+    local cb = CreateFrame("CheckButton", nil, parent)
+    cb:SetWidth(20)
+    cb:SetHeight(20)
+    cb:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, y)
+    if pfUI.api and pfUI.api.SkinCheckbox then pfUI.api.SkinCheckbox(cb) end
+    AttachCheckboxMark(cb)
+
+    local label = cb:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    label:SetPoint("LEFT", cb, "RIGHT", 5, 0)
+    label:SetText(text)
+    cb.label = label
+
+    cb:SetChecked(false)
+    UpdateCheckboxMark(cb)
+    cb:Disable()
+    cb:SetAlpha(.5)
+
+    return cb
+  end
+
   -- Enabling this is both the takeover switch and the Auto-Sell ON switch.
   -- When disabled, pfUI's own Auto-Sell setting and behaviour are restored intact.
   local takeover = MakeCheckbox(title, -12,
-    T_("Throttle pfUI auto-sell"), "takeoverGreys", function()
+    T_("VT_THROTTLE_AUTOSELL"), "takeoverGreys", function()
       CancelSellQueue()
       ApplyGreyTakeover()
     end)
 
-  local slider = CreateFrame("Slider", "pfVT_ComponentSpeedSlider", parent, "OptionsSliderTemplate")
+  local slider = CreateFrame("Slider", "pfUI_VendorTweaks_ComponentSpeedSlider", parent, "OptionsSliderTemplate")
   -- Align the slider to the right edge of the two list columns.
   slider:SetPoint("RIGHT", takeover, "LEFT", 415, 0)
   slider:SetWidth(150)
@@ -677,7 +975,13 @@ local function BuildComponentsPanel(parent)
 
   -- The list toggles double as the two side-by-side section subheaders.
   local autoVendor = MakeCheckbox(takeover, -32,
-    T_("Auto-Vendor"), "autoVendor")
+    T_("VT_AUTO_VENDOR"), "autoVendor")
+
+  local showSellAnimation = MakeDisabledCheckbox(autoVendor, -2,
+    T_("VT_SHOW_SELL_ANIMATION"))
+
+  local showSellChat = MakeCheckbox(showSellAnimation, -2,
+    T_("VT_SHOW_SELL_CHAT"), "showSellChat")
 
   local autoDelete = CreateFrame("CheckButton", nil, parent)
   autoDelete:SetWidth(20)
@@ -688,7 +992,7 @@ local function BuildComponentsPanel(parent)
 
   local deleteLabel = autoDelete:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   deleteLabel:SetPoint("LEFT", autoDelete, "RIGHT", 5, 0)
-  deleteLabel:SetText(T_("Auto-Delete"))
+  deleteLabel:SetText(T_("VT_AUTO_DELETE"))
 
   autoDelete:SetScript("OnClick", function()
     if not DB then return end
@@ -700,6 +1004,16 @@ local function BuildComponentsPanel(parent)
       deleteWorker:Hide()
     end
   end)
+
+  -- Keep Auto-Delete feedback controls between the feature toggle and its
+  -- drop target so they sit outside the list scroll frame and remain clickable.
+  local showDeleteAnimation = MakeCheckbox(autoDelete, -2,
+    T_("VT_SHOW_DELETE_ANIMATION"), "showDeleteAnimation", function()
+      if not Enabled("showDeleteAnimation") then ResetBinVisual() end
+    end)
+
+  local showDeleteChat = MakeCheckbox(showDeleteAnimation, -2,
+    T_("VT_SHOW_DELETE_CHAT"), "showDeleteChat")
 
   local function SetDropHighlight(frame, shown)
     if not frame or not frame.goldBorder then return end
@@ -764,8 +1078,8 @@ local function BuildComponentsPanel(parent)
     return frame
   end
 
-  local vendorDrop = MakeDropSlot(autoVendor, T_("Drop item here to vendor"))
-  local deleteDrop = MakeDropSlot(autoDelete, T_("Drop item here to delete"))
+  local vendorDrop = MakeDropSlot(showSellChat, T_("VT_DROP_VENDOR"))
+  local deleteDrop = MakeDropSlot(showDeleteChat, T_("VT_DROP_DELETE"))
 
   local LIST_WIDTH = 195
   local LIST_HEIGHT = 190
@@ -923,7 +1237,7 @@ local function BuildComponentsPanel(parent)
     local item = DB.items and DB.items[id]
     local name = type(item) == "table" and item.name or nil
     local texture = type(item) == "table" and item.icon or nil
-    return name or string.format(T_("ID: %d"), id), texture
+    return name or string.format(T_("VT_ID"), id), texture
   end
 
   local function Refresh()
@@ -931,7 +1245,10 @@ local function BuildComponentsPanel(parent)
 
     SetCheckboxChecked(takeover, Enabled("takeoverGreys"))
     SetCheckboxChecked(autoVendor, Enabled("autoVendor"))
+    SetCheckboxChecked(showSellChat, Enabled("showSellChat"))
     SetCheckboxChecked(autoDelete, Enabled("autoDelete"))
+    SetCheckboxChecked(showDeleteAnimation, Enabled("showDeleteAnimation"))
+    SetCheckboxChecked(showDeleteChat, Enabled("showDeleteChat"))
 
     local interval = GetInterval()
     slider:SetValue(interval)
@@ -940,7 +1257,7 @@ local function BuildComponentsPanel(parent)
     for _, row in ipairs(vendorPool) do row:Hide() end
     for _, row in ipairs(deletePool) do row:Hide() end
 
-    -- Known VendorTweaks metadata wins immediately. Only incomplete entries
+    -- Known pfUI VendorTweaks metadata wins immediately. Only incomplete entries
     -- query WoW's item cache. If Refresh discovers a previously-untracked
     -- missing icon, perform one shared bag scan; already-tracked misses rely on
     -- the on-demand BAG_UPDATE repair listener instead of rescanning all bags.
@@ -1094,7 +1411,7 @@ local function BuildComponentsPanel(parent)
       end
     end
 
-    CacheItemInfo(itemID, name or string.format(T_("Item #%d"), itemID), texture)
+    CacheItemInfo(itemID, name or string.format(T_("VT_ITEM_FALLBACK"), itemID), texture)
     if texture then
       missingIconIDs[itemID] = nil
     else
@@ -1120,7 +1437,7 @@ local function BuildComponentsPanel(parent)
 end
 
 if pfUI.gui and pfUI.gui.CreateGUIEntry then
-  pfUI.gui.CreateGUIEntry(T_("Thirdparty"), T_("VendorTweaks"), function()
+  pfUI.gui.CreateGUIEntry(T_("Thirdparty"), T_("VT_VENDOR_TWEAKS"), function()
     BuildComponentsPanel(this)
   end)
 end
