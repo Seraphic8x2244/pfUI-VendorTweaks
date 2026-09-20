@@ -1,11 +1,11 @@
--- pfUI-VendorTweaks localisation: koKR
+-- pfUI VendorTweaks localisation: koKR
 -- Keep format specifiers unchanged: %d %s
 
 if not pfUI_translation then return end
 
 pfUI_translation["koKR"] = pfUI_translation["koKR"] or {}
 local entries = {
-    ["VT_VENDOR_TWEAKS"] = "VendorTweaks",
+    ["VT_VENDOR_TWEAKS"] = "pfUI VendorTweaks",
     ["VT_THROTTLE_AUTOSELL"] = "pfUI 자동 판매 속도 조절",
     ["VT_AUTO_VENDOR"] = "자동 판매",
     ["VT_AUTO_DELETE"] = "자동 삭제",
@@ -19,7 +19,7 @@ local entries = {
     ["VT_SOLD"] = "판매됨: %s",
     ["VT_SHOW_DELETE_ANIMATION"] = "삭제 애니메이션 표시",
     ["VT_DELETED"] = "삭제됨: %s",
-    ["VT_BIN"] = "VendorTweaks Bin",
+    ["VT_BIN"] = "pfUI VendorTweaks Bin",
 }
 
 for key, value in pairs(entries) do
