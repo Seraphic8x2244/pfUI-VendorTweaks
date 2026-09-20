@@ -4,119 +4,43 @@
 - Branch: `dev`
 - Test version: `0.1.27-dev10`
 - Base main version: `0.1.26`
-- Branched from: `e9b8c1a0fa6a5fffd0f23a21321f4945b0938024` — Exempt vendor purchases from Auto-Delete
-- Current dev HEAD before this status update: `0d2ee5634a45e4031aa70d267f6b8bfba8c646dd`
+- Current dev HEAD recorded before migration: `0d2ee5634a45e4031aa70d267f6b8bfba8c646dd`
+- Current goal: migrate the repository to the canonical `VanillaTemplate` workflow without changing addon behaviour.
 
-## Latest dev commits
+## Latest relevant dev commits
 - `0d2ee5634a45e4031aa70d267f6b8bfba8c646dd` — Bump VendorTweaks dev10 test version
 - `7ece3f23e04f6614f0370070ba068a2eab69fd58` — Localise sell feedback options
 - `049b82601159f4fffac59ec775356516266ec7f1` — Add balanced sell feedback options
-- `b7f0d7892bbdb847e48926df6b9ffb4ddb0e10a6` — Bump VendorTweaks dev9 test version
 - `997b806485d5d98f214ff540a0a800bf8055fbdb` — Move delete feedback toggles above drop target
-- `8aa20090351656b9099ee7cb07cc2f15f1f51912` — Bump VendorTweaks dev8 test version
 - `15c8da47ef8e4c8c1fded820a0e74c5ad41781ed` — Localise delete animation toggle
-- `ea5053917eff6161089873ce426b1abb2d743342` — Replace Bin test button with feedback toggles
-- `4896f51bd4f425efaef769a5ac8a315af8a82488` — Bump VendorTweaks dev7 test version
-- `ab04297794657be7a8aca783f35226cb30453db3` — Nudge Bin icon up slightly
-- `fe18981493b8942f4b5fde76dbfffb3212e417db` — Bump VendorTweaks dev6 test version
-- `608186f42474f08bff797661196e76b500dd4cb5` — Lower Bin icon further into flames
-- `f59a0008211aa8b7eccd01b817c130957f9df42b` — Bump VendorTweaks dev5 test version
-- `5c26deb04691f620879511ec955758ca563c3c68` — Lower Bin icon into burn effect
-- `079d06a04415ab30de1a7816879094dbc9345a51` — Bump VendorTweaks dev4 test version
-- `24a242daf850429936c9581a2514f36c4cc66172` — Localise Bin animation test button
-- `e6f3c25feabc61460da1fa28f7ca4a3c8310eee7` — Add Bin animation test button
-- `78b320b4c6eacb71fdbee192cf334e4c3efa363d` — Bump VendorTweaks dev3 test version
-- `8ed7b269b4fbe73152753e95356b7e8ae0b28b6d` — Make Bin icon char black with top-down wipe
-- `9ee1eecad9011c8c99e88c3de6abc6dba60f1cbd` — Bump VendorTweaks dev test version
-- `9032770e9a2adc1c2b1c597de1cf8c8f62ab9beb` — Slow Bin animation and remove quest-failed sound
-- `ae842b0024acefd039c58b77259168d10a50caec` — Restore VendorTweaks dev1 test version
-- `cb284f86398ee42d00528294e37494adc4b999d4` — Revert false Bin unlock compatibility change
-- `d445fe7fbac1c06cab94bdc8d9867f6e5c051b31` — Bump VendorTweaks dev test version
-- `165a2df82e17692f668ce8c1aa63b1fc94d385fa` — Keep VendorTweaks Bin movable visible
-- `d82673f23e1f3e55b023208b14b8aaf16921eac9` — Record VendorTweaks Bin unlock failure
-- `d6bd35b163588aebfc134b4dd7888f342d42454c` — Remove temporary TGA compatibility workflow
-- `749b370128eeaa8441c9e647cc3d342ba0518da7` — Update VendorTweaks animation test handoff
-- `efa3fcec9a9faecc8c25d87820177f5edadd0e89` — Bump VendorTweaks dev test version
-- `431f2b84b2ff7ea1e3e3b96552b7582cddb2d81e` — Localise delete chat toggle
-- `13465e4122a0daccf2e9497c3478774020ffc477` — Add first VendorTweaks Bin animation
-- `38de111cb727a0e2a6e4545e01e196692e579a9f` — Add first VendorTweaks burn sprite
-- `03005cb53a32cb97e75338b153b2430e643d7b9e` — Add VendorTweaks dev handoff
 
-## Completed on dev
-- Existing Auto-Delete chat message preserved.
-- Added per-character `Show delete animation` and `Show delete message in chat` options, both default ON.
-- Added translations for both Auto-Delete feedback options to all supported VendorTweaks/pfUI locales.
-- Added `pfVendorTweaksBin` as a 64x64 pfUI movable; pfUI Unlock Mode controls move/scale/reset and the drag label is presented as `VendorTweaks Bin`.
-- Added an 8-frame transparent burn-to-ash TGA sprite strip. Source frames are 32x32 and render in the 64x64 Bin for the first visual test.
-- Added an OnUpdate animation: 32x32 item icon underneath and burn sprite above. `0.1.27-dev2` lengthens the duration from 0.24s to 1.00s; `0.1.27-dev3` chars the icon to black and wipes it from top to bottom.
-- Successful Auto-Delete starts/restarts the Bin animation with the deleted item's slot texture, then falls back through the shared item cache to the question-mark icon.
-- `0.1.27-dev1` test showed `igQuestLogAbandonQuest` is the quest-failed sound and unsuitable. `0.1.27-dev2` removes animation audio pending a better choice.
-- Rapid deletes replace/restart the active visual instead of queueing animation notifications.
-- `0.1.27-dev8` removes the temporary `Test Bin Animation` button and adds a per-character `Show delete animation` toggle, default ON.
-- `Show delete animation` and `Show delete message in chat` are stacked between `Auto-Delete` and its drop target as independent feedback controls.
-- `0.1.27-dev10` mirrors that layout on the Auto-Vendor side with a disabled/greyed `Show sell animation` placeholder and a functional per-character `Show sell message in chat` toggle, default ON.
-- VendorTweaks sell chat uses localized `Sold: %s` output from the shared throttled sell engine, so it covers both custom Auto-Vendor items and grey-item takeover sales.
-- Existing Auto-Delete acquisition, BAG_UPDATE debounce, cursor verification, deletion safety and vendor-purchase exemption logic are otherwise unchanged.
+## Completed / user verified
+- `0.1.27-dev9`: Auto-Delete feedback checkbox placement and clickability confirmed good.
+- `0.1.27-dev10`: Auto-Vendor feedback controls appear in the menu and the layout is confirmed perfect.
+- Existing Auto-Delete, vendor queue, vendor-purchase exemption and pfUI integration remain unchanged.
 
-## In-game test findings
-- `0.1.27-dev9`: Auto-Delete feedback checkbox placement and clickability confirmed good in game.
-- `0.1.27-dev8`: both feedback checkboxes rendered but were not clickable; likely overlapped/intercepted by the delete-list scroll frame.
-- `0.1.27-dev6`: icon placement was very close; requested a 2-UI-unit upward nudge.
-- `0.1.27-dev5`: icon still sits about one previous adjustment too high; requested another ~6 UI units downward.
-- `0.1.27-dev4`: screenshot review shows the item icon visually sitting about 8–10 screen pixels too high relative to the flame body; estimated correction is ~6 WoW UI units downward.
-- `0.1.27-dev2`: icon did not reach black and disappeared by shrinking vertically toward its centre; desired effect is a top-to-bottom wipe.
-- `0.1.27-dev1`: `VendorTweaks Bin` appears correctly in pfUI Unlock Mode on the user's setup. Original movable registration is valid; previous missing-anchor report was caused by testing `main` instead of `dev`.
-- `0.1.27-dev1`: burn animation at 0.24s is far too fast.
-- `0.1.27-dev1`: `igQuestLogAbandonQuest` plays the quest-failed sound and is the wrong audio cue.
+## Implemented / awaiting test
+- `Show sell animation` placeholder should be visible, greyed and non-functional.
+- `Show sell message in chat` should default ON and control only VendorTweaks sell chat output.
+- Localized `Sold: %s` output covers custom Auto-Vendor and grey-item takeover sales.
+- Sell-chat ON/OFF behaviour has not yet been tested in game.
 
-## Untested in game
-- TGA render/alpha and sprite texture coordinates on the actual Vanilla 1.12.1 client. The strip is 32-bit RGBA RLE TGA, 256x32; legacy WoW API documentation states RLE TGA is supported, but the actual client test remains authoritative.
-- Whether scaling 32px source frames to a 64px display is crisp enough; if soft, rebuild as native 64px frames.
-- Bin drag/scale/reset and saved-position persistence on the user's pfUI setup; cross-fork behaviour remains untested.
-- `0.1.27-dev7` icon placement after nudging its centre from y=-14 to y=-12 (with wipe bottom anchor adjusted from -30 to -28), plus blackening/top-down wipe timing.
-- Sound choice/volume.
-- Repeated rapid deletion visual behaviour.
-- `0.1.27-dev10` balanced Auto-Vendor/Auto-Delete feedback layout, disabled sell-animation placeholder appearance, sell-chat toggle behavior, and localization widths.
+## Current issues
+- None blocking migration.
+
+## Planned migration
+- Add canonical `DEV_GUIDE.md` unchanged from `VanillaTemplate`.
+- Replace this file with canonical-style `DEV_PROGRESS.md`.
+- Normalize development version to `0.1.27-dev` and stop numbered dev versions.
+- Make the .toc the sole version source; remove the hardcoded Lua version header and expose `ADDON_VERSION` from metadata.
+- Split `locales.lua` into `locales/<locale>.lua` files and move remaining user-facing strings into localization.
+- Move addon artwork under `artwork/` and update texture paths.
+- Do not refactor vendor/delete logic.
 
 ## Deferred
-- Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so no heuristic matching.
-- Additional/interpolated burn frames unless this 8-frame test proves too jumpy.
-- Polished/custom burn sound unless the stock Vanilla sound is unsatisfactory.
-
-## Current design direction for delete animation
-Preferred redesign from the latest review:
-
-1. Live item icon phase
-   - show the real item icon normally
-   - ignite around the item
-   - fire rapidly grows and engulfs the icon
-   - at peak fire, the flames fully obscure the live icon
-
-2. Sprite-driven remains phase
-   - hide the real live icon at peak fire
-   - swap to a generic black/charred icon-remains sprite
-   - charred remains buckle and collapse downward
-   - finish as a compact ash pile with a brief smoke/ember linger
-
-Rationale:
-- avoids trying to procedurally deform arbitrary item icons
-- keeps item identity readable only during the part where it matters
-- lets the collapse-to-ash portion be authored as proper effect art
-- should feel smoother and more intentional at low frame counts
-- target feel is a stylized Crash Bandicoot-like collapse to ash, without copying any specific copyrighted asset
+- Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID.
+- Revised Auto-Delete animation rework until workflow migration is complete.
+- Sound choice/volume and any additional/interpolated burn frames.
 
 ## Exact next step
-1. Install/test `dev` `0.1.27-dev10`.
-2. Verify the Auto-Vendor side:
-   - `Show sell animation` is visible, greyed out and non-functional
-   - `Show sell message in chat` is clickable and defaults ON
-   - vendor drop target sits below both
-3. Test sell chat:
-   - sell one grey and/or Auto-Vendor-listed item with chat ON and confirm localized `Sold:` output
-   - turn sell chat OFF and repeat; sale must still occur with no VendorTweaks `Sold:` line
-4. If dev10 passes, begin the revised Auto-Delete animation implementation:
-   - real icon burns until peak fire obscures it
-   - hide live icon at peak
-   - swap to a generic charred-remains sprite
-   - collapse the charred remains into ash with a short smoke/ember linger
-5. Start a fresh development chat from this handoff before substantial implementation work.
+Perform the VanillaTemplate workflow migration on `dev`, then smoke-test addon loading, localization, the existing Bin texture path, and retain sell-chat behavior as explicitly untested until the user checks it.
