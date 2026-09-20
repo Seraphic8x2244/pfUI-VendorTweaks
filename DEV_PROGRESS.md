@@ -7,6 +7,7 @@
 - Workflow: Migrated to the canonical `VanillaTemplate` development contract.
 
 ## Recent Commits
+- `a5ee54a1c75b5770510f2cd04ccd02daa44ed19b` — Restore coloured `pfUI VendorTweaks-dev` TOC title.
 - Repository renamed externally to `Seraphic8x2244/pfUI_VendorTweaks`, completing technical identifier normalization.
 - `43819d4a49740358d02ddbfc6c81de4e6ea2d148` — Normalize `pfUI_VendorTweaks` burn asset name.
 - `5a8c43adc38e25d3a353cbe243fde53e98705342` — Add/localise burn debug controls and corrected TOC paths.
@@ -40,7 +41,7 @@
 - Sell-chat ON/OFF behavior has been confirmed working in game.
 - Static migration checks passed: every locale defines all 15 pfUI VendorTweaks keys; the TOC loads all locale files; the Lua file has no hardcoded dev10 version; and the moved burn TGA retains the exact original blob SHA.
 - Sell-chat messages are confirmed working on the migrated build.
-- User-facing addon branding has been renamed to `pfUI VendorTweaks` in the TOC title, pfUI panel/title, chat prefixes, movable Bin label, locale values and development documentation.
+- User-facing addon branding is `pfUI VendorTweaks`; the dev TOC title now restores the established pfUI colouring (`pf` teal, `UI` white, `VendorTweaks-dev` grey).
 - Technical identifiers remain `pfUI-VendorTweaks` / `pfUI_VendorTweaks` where required for addon loading, paths and SavedVariables.
 - Technical addon identifiers are now normalized to `pfUI_VendorTweaks`: TOC/Lua basename, `ADDON_NAME`, SavedVariables, named frames/textures, slider global and addon texture path.
 - Burn artwork is now `artwork/pfUI_VendorTweaks_Burn.tga`; the image blob is byte-identical to the prior asset.
