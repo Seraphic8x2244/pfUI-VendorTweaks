@@ -31,6 +31,12 @@ local entries = {
     ["VT_DEBUG_HINT"] = "Enter = exact value   +/- = 1 UI unit",
     ["VT_DEBUG_PREFIX"] = "pfUI VendorTweaks Debug",
     ["VT_DEBUG_VALUES"] = "item=(%d, %d) fire=(%d, %d)",
+    ["VT_DEBUG_TIMELINE"] = "Timeline",
+    ["VT_DEBUG_TIMELINE_TITLE"] = "Animation Timeline - 2.0s",
+    ["VT_DEBUG_SNAP"] = "Snap",
+    ["VT_DEBUG_END"] = "END",
+    ["VT_DEBUG_SELECTED"] = "%s = %d ms",
+    ["VT_DEBUG_TIMELINE_VALUES"] = "timeline snap=%dms %s",
 }
 
 for key, value in pairs(entries) do
