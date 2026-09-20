@@ -5,13 +5,14 @@
 - Version: `0.1.27-dev`
 - Repository/addon technical name: `pfUI_VendorTweaks`
 - User-facing name: `pfUI VendorTweaks`
-- Stable release: `main` is now `0.1.27` at `b2a90beb03464494b2cd5c699f10a0a2bd82f26b`.
+- Stable release: `main` is `0.1.27` at `b2a90beb03464494b2cd5c699f10a0a2bd82f26b`.
+- Status: Feature-complete for now. Treat as maintenance-only unless the user explicitly reopens feature development.
 - Workflow: Canonical `VanillaTemplate` development contract; `DEV_GUIDE.md` is authoritative.
 
 ## Recent Commits
+- `8d4075a77b324b127a14f2ab163ae744740fcebd` — Record 0.1.27 release.
 - `d3b272050cf75665895ce3113771946f280bef8b` — Record 0.1.27 stable approval.
 - `435bc1873bc6de201798855c1edfe84d0e9bfa99` — Record restored 8-frame burn test state.
-- `07ea0eb4e57a89c9893566d6eb328b79ffad5ec2` — Record debug timing ruler test state.
 - Stable `main`: `b2a90beb03464494b2cd5c699f10a0a2bd82f26b` — Release 0.1.27.
 
 ## Released / User Verified
@@ -26,6 +27,7 @@
 - User-facing branding: `pfUI VendorTweaks`.
 - Technical identifiers normalized to `pfUI_VendorTweaks`.
 - Dev debug controls/timeline framework works with the existing 8-frame animation.
+- Stable install naming is normalized to `pfUI_VendorTweaks`; stale hyphenated `pfUI-VendorTweaks.toc/.lua` files from older installs must not be used.
 
 ## Stable 0.1.27 Verification
 - `main` TOC title has no `-dev`.
@@ -45,9 +47,9 @@
 ## Untested Work
 - None pending for the released `0.1.27` state.
 
-## Deferred
+## Deferred / Shelved
 - Longer/higher-frame/two-part burn replacement is shelved.
 - Buyback-specific Auto-Delete exemption: stock 1.12 buyback API does not expose an exact item link/ID, so avoid heuristic matching.
 
 ## Exact Next Step
-No immediate release work. Future development starts from `dev` at `0.1.27-dev`; keep `main` at the known-good `0.1.27` release until a later dev state is explicitly user-approved for promotion.
+No immediate development work. Leave `main` at known-good `0.1.27` and `dev` at `0.1.27-dev`. Only resume development for maintenance fixes or when the user explicitly reopens feature work.
