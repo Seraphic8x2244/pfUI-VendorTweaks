@@ -2,17 +2,14 @@
 
 ## Current
 - Branch: `dev`
-- Version: `0.1.28-dev`
-- Current dev runtime head: `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`.
-- Release-facing P3 runtime commit: `50efdff8f24001010b087abdf817da86a669646a` — indexed/cached sell worker, reduced bin-animation redundant work, and demand-driven configuration drop-animation updates.
-- Dev-only P3 commit: `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` — demand-driven Debug.lua timeline dragging.
+- Dev version: `0.1.28-dev`
+- Stable release: `0.1.28` on `main` at `9df26d5606bcfecae59d22227219fe6d939bfe94`.
+- User-tested runtime source: `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`; the stable release uses the exact same `pfUI_VendorTweaks.lua` blob (`d4011262f648fe98bcf78be37640cbce249d6e6b`) with stable TOC metadata and dev-only material removed.
+- Release-facing P3 runtime commit: `50efdff8f24001010b087abdf817da86a669646a`.
 - P2 runtime commit: `63a75ebdda85bec16dc074f48622fd1bcdd38576`.
-- P1 icon-resolution runtime commit: `a1c9b6daec6fd06b644a804b19d6490cb89babab`.
-- P1 occupied-cursor worker runtime commit: `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf`.
-- Stable baseline: `0.1.27` on `main` at `b2a90beb03464494b2cd5c699f10a0a2bd82f26b`.
-- Goal: finish the performance-maintenance pass by validating the combined P1+P2+P3 tree through normal play rather than isolated restart-heavy microtests.
-- Current stage: all planned P1/P2/P3 performance work is implemented, statically reviewed, accepted by the real Lua 5.0.2 compiler checker, and user-verified through natural play on the exact runtime tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`. Release/promotion to stable `0.1.28` is now authorized.
-- Current scope boundary: performance-focused maintenance only. Do not reopen shelved visual/features work, change SavedVariables semantics, or alter accepted vendor/delete behaviour unless required by a proven regression.
+- P1 runtime commits: `a1c9b6daec6fd06b644a804b19d6490cb89babab` and `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf`.
+- Mode: maintenance. The performance pass is complete, user-accepted, validated, and promoted. Do not begin speculative optimization or feature work without a new explicit request.
+- Current scope: regression fixes, compatibility maintenance, or explicitly requested changes only.
 
 ## Current Design / Development Contract
 
@@ -39,7 +36,7 @@
 - Vendor/delete list membership remains item-ID keyed; cached names/icons remain presentation metadata rather than behavioural authority.
 
 ### Active Decisions
-- The addon remains feature-complete; this is an explicitly authorized maintenance pass.
+- The addon is feature-complete and has returned to maintenance mode after the completed `0.1.28` performance pass.
 - The performance audit should prioritize removing recurring idle/background work over micro-optimizing one-shot configuration or merchant operations.
 - Preserve event-driven ownership: temporary workers may run while a real operation is active, but they should become fully dormant when no work is pending.
 - The longer/higher-frame/two-part Fire/Ash burn replacement remains shelved; the restored 8-frame implementation is the approved production state.
@@ -115,13 +112,13 @@ Post-P3 re-audit:
 - No further obvious recurring runtime cost is currently worth another optimization stage before user validation.
 
 ## Recent Relevant Commits
-- `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` — Make dev debug timeline update demand-driven; current dev runtime head.
+- `9df26d5606bcfecae59d22227219fe6d939bfe94` on `main` — Release 0.1.28; current stable release.
+- `e3326556fa0158fdadd7dc16c9da700116625d80` on `dev` — Record accepted performance runtime before promotion.
+- `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` — Final user-tested dev runtime tree; dev-only timeline cleanup on top of release-facing P3 runtime.
 - `50efdff8f24001010b087abdf817da86a669646a` — Optimize remaining release-facing runtime micro-costs.
-- `5b2451959e410bd172e7d4ee77a7b49024ab29bf` — Record P2 performance checkpoint.
-- `63a75ebdda85bec16dc074f48622fd1bcdd38576` — Make Auto-Delete events demand-driven; P2 implementation.
-- `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf` — Stop delete worker when cursor is occupied; second P1 runtime change.
-- `a1c9b6daec6fd06b644a804b19d6490cb89babab` — Remove background icon repair polling; first P1 runtime change and `0.1.28-dev` version bump.
-- Stable `main`: `b2a90beb03464494b2cd5c699f10a0a2bd82f26b` — Release 0.1.27.
+- `63a75ebdda85bec16dc074f48622fd1bcdd38576` — Make Auto-Delete events demand-driven.
+- `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf` — Stop delete worker when cursor is occupied.
+- `a1c9b6daec6fd06b644a804b19d6490cb89babab` — Remove background icon-repair polling and begin 0.1.28-dev performance pass.
 
 ## Completed / User-Verified
 - P1 partial runtime checkpoint on `0.1.28-dev`: normal login, reload and zoning passed with no reported Lua errors.
@@ -137,8 +134,7 @@ Post-P3 re-audit:
 - Stable install naming is normalized to `pfUI_VendorTweaks`; obsolete hyphenated runtime filenames are not part of the supported install.
 
 ## Implemented / Awaiting Runtime Test
-- None for the performance pass. The exact combined P1+P2+P3 runtime tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` is user-verified and accepted.
-- Historical note: the occupied-cursor 0.20-second edge case was never deliberately reproduced because the timing window is impractical to hit manually, but no regression was observed during the accepted natural-play session.
+- None. No unreleased runtime work is currently queued.
 
 ## Static / Automated Checks
 - P1 and P2 passed their documented static reviews and Lua 5.0.2 checks.
@@ -149,32 +145,30 @@ Post-P3 re-audit:
 - The bin animation no longer reapplies unchanged pre-burn visual state every frame and only reapplies the wipe anchor on the transition into wiping.
 - Debug timeline has no permanent `timeline:SetScript("OnUpdate", function...)`; it attaches the named update handler only during marker dragging and clears it on all drag termination paths.
 - Post-P3 event/OnUpdate inventory found no further high-frequency idle path beyond already-hidden workers and the intentional bin animation/unlock frame.
-- GitHub Actions run `36030161209` passed the canonical Lua 5.0.2 checker reconstruction, checker self-test, and compilation of `pfUI_VendorTweaks.lua`, `Debug.lua`, and all locale Lua files.
-- Temporary validation branch `validation/lua50-p3` was reset back to `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`; no temporary workflow remains in the runtime tree.
+- GitHub Actions run `36030161209` passed the combined dev-tree Lua 5.0.2 checker/self-test and compilation.
+- Initial stable-tree validation run `36035277559` failed only because the temporary dev checker command referenced intentionally absent `Debug.lua`; checker self-test itself passed.
+- Corrected stable-file-set validation run `36035354158` passed the real Lua 5.0.2 checker/self-test and compiled `pfUI_VendorTweaks.lua` plus all stable locale Lua files.
+- Stable release tree `91fef0ebcafcc6a975949a992d23e69dea0be8c1` contains only `README.md`, artwork, locales, `pfUI_VendorTweaks.lua`, stable `pfUI_VendorTweaks.toc`, and `pfui-av.png`; no `DEV_PROGRESS.md`, `dev_rulebook.md`, `Debug.lua`, or temporary validation files are present.
 
 ## Current Issues
-- No current runtime, static, or compiler regression is known in the accepted performance tree.
-- The occupied-cursor P1 edge case was not deliberately reproduced because the 0.20-second timing window is impractical to hit manually; this is retained as historical validation context rather than a blocker.
+- No current runtime, static, or compiler regression is known.
+- Historical validation note: the occupied-cursor P1 edge case was not deliberately reproduced because the 0.20-second timing window is impractical to hit manually; no related regression was observed during natural play.
 
 ## Testing
 
 ### Last Runtime Test
-- Version/runtime commit: `0.1.28-dev` runtime tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` (current dev head later adds documentation only).
+- Version/runtime source: `0.1.28-dev` runtime tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`.
 - Result: user reports the addon appears to be working as expected during natural play.
-- Accepted coverage: combined P1/P2/P3 behaviour, including the ordinary vendor/delete/config flows the user was asked to watch during normal use.
 - No Lua errors, missed/unintended actions, visual regressions, stuck workers, or performance symptoms were reported.
-- Historical gap: the occupied-cursor 0.20-second edge case was not deliberately reproduced because the timing window is impractical to hit manually.
+- The stable `0.1.28` release at `9df26d5606bcfecae59d22227219fe6d939bfe94` inherits this runtime validation because its runtime Lua blob is byte-identical to the tested source; promotion changed only stable TOC metadata and removed dev-only material.
 
 ### Next Runtime Test
-- No additional pre-release runtime test is required for the accepted runtime tree.
-- Stable `0.1.28` may inherit this runtime validation only if promotion changes are limited to stable TOC metadata and removal of dev-only files/material.
+- None scheduled. Resume runtime testing only when a future maintenance change introduces a new runtime delta.
 
 ## Planned / Next Work
-1. Record this exact runtime acceptance — complete.
-2. Compare current `dev` against stable `main`, preserving legitimate release-only content.
-3. Promote the accepted release-facing runtime to stable `0.1.28`, excluding `DEV_PROGRESS.md`, `Debug.lua`, and development-only TOC loader entries.
-4. Run final static/Lua 5.0.2 release-tree validation.
-5. Record the stable commit/version back in `DEV_PROGRESS.md` and return the addon to maintenance mode.
+- No active development work. Project is in maintenance mode.
+- Future work should begin only for a reported regression, compatibility need, or explicit new request.
+- Any future runtime edit starts a new tested delta from stable `main` `0.1.28` at `9df26d5606bcfecae59d22227219fe6d939bfe94`.
 
 ## Deferred / Out of Scope
 - Longer/higher-frame/two-part burn replacement remains shelved.
@@ -183,13 +177,13 @@ Post-P3 re-audit:
 - Do not add ClassicAPI or another DLL dependency solely for this performance pass unless a concrete measured limitation of the native 1.12.1 API requires it and the dependency is explicitly reconsidered.
 
 ## Release / Promotion Notes
-- Stable baseline to preserve is `main` `0.1.27` at `b2a90beb03464494b2cd5c699f10a0a2bd82f26b`.
-- Do not promote the performance rewrite until the exact runtime delta is user-tested and accepted.
-- Preserve stable TOC Title/Version metadata and exclude development-only status/debug material from release builds.
-- `main` and `dev` diverge in Git history; future promotion must compare the branches and preserve the intended stable/release tree rather than assuming a blind fast-forward or replacement.
-- Main-only or release-only content to preserve: stable TOC metadata and the absence of dev-only `DEV_PROGRESS.md`/`Debug.lua`; no unique main-only runtime feature is currently documented.
-- Known validation debt accepted for release: None.
-- External/runtime prerequisites: World of Warcraft 1.12.1 and pfUI. No optional DLL/client extension is currently required.
+- Current stable release is `0.1.28` on `main` at `9df26d5606bcfecae59d22227219fe6d939bfe94`.
+- Stable TOC metadata is `VendorTweaks` / `0.1.28`.
+- Stable runtime Lua blob is exactly `d4011262f648fe98bcf78be37640cbce249d6e6b`, matching the user-tested dev runtime.
+- Stable release excludes `DEV_PROGRESS.md`, `dev_rulebook.md`, `Debug.lua`, and development-only loader entries.
+- Release validation: corrected stable-file-set Lua 5.0.2 run `36035354158` passed.
+- Accepted validation debt: the occupied-cursor 0.20-second edge case was not deliberately reproduced; natural play showed no related regression.
+- External/runtime prerequisites remain World of Warcraft 1.12.1 and pfUI; no optional DLL/client extension is required.
 
 ## Exact Next Step
-Promote the user-accepted runtime tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` to stable `main` as version `0.1.28`. Compare against current `main` first; preserve legitimate release-only content, use stable TOC Title/Version metadata, and exclude `DEV_PROGRESS.md`, `Debug.lua`, and development-only loader entries. Run final Lua 5.0.2/static validation on the release tree, then record the exact stable commit and return the project to maintenance mode.
+None. The addon is in maintenance mode at stable `0.1.28` (`main` `9df26d5606bcfecae59d22227219fe6d939bfe94`). On the next explicit maintenance request, read this file and `dev_rulebook.md`, verify current branch heads, and start from the stable `0.1.28` baseline unless the request intentionally establishes a new development line.
