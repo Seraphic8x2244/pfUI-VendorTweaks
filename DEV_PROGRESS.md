@@ -2,15 +2,17 @@
 
 ## Current
 - Branch: `dev`
-- Dev version: `0.1.28-dev` baseline; next runtime change will bump to `0.1.29-dev`.
+- Dev version: `0.1.29-dev`.
 - Stable release: `0.1.28` on `main` at `9df26d5606bcfecae59d22227219fe6d939bfe94`.
 - User-tested runtime source: `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`; the stable release uses the exact same `pfUI_VendorTweaks.lua` blob (`d4011262f648fe98bcf78be37640cbce249d6e6b`) with stable TOC metadata and dev-only material removed.
 - Release-facing P3 runtime commit: `50efdff8f24001010b087abdf817da86a669646a`.
 - P2 runtime commit: `63a75ebdda85bec16dc074f48622fd1bcdd38576`.
 - P1 runtime commits: `a1c9b6daec6fd06b644a804b19d6490cb89babab` and `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf`.
-- Current dev head/handoff before this feature pass: `f9143abb659481007ac497ec00d5451a6800a4e6`.
-- Mode: active feature development by explicit user request.
-- Current scope: add user-configurable Auto-Delete burn duration and an Auto-Buy maintain-stock feature, with the minimum configuration-panel re-layout needed to support both. Preserve the accepted `0.1.28` vendor/delete/runtime baseline outside this delta.
+- Feature-pass baseline: `f9143abb659481007ac497ec00d5451a6800a4e6`.
+- Current pre-handoff dev head: `6bff5c194649b4a0af079bdf3147880faef82488`.
+- Lua-validated feature runtime commit: `164ec4bf1e86d6cb3f3c2e459cef87c97f7ee848`; later commits only removed the temporary checker and updated TOC notes.
+- Mode: runtime-validation gate for the explicit `0.1.29-dev` feature pass.
+- Current scope: validate the new burn-duration control, Auto-Buy maintain-stock behavior and options re-layout while preserving the accepted `0.1.28` vendor/delete baseline.
 
 ## Current Design / Development Contract
 
@@ -24,7 +26,7 @@
 
 ### Invariants
 - Technical addon/folder/metadata identity is `pfUI_VendorTweaks`; stale hyphenated `pfUI-VendorTweaks.toc/.lua` files from older installs must not be used.
-- The addon version comes from the TOC. The current performance build is `0.1.28-dev`; its runtime delta is the completed P1/P2 performance work plus the P3 sell-worker, burn-animation and configuration-animation micro-optimizations. `Debug.lua` also has a dev-only demand-driven timeline update cleanup.
+- The addon version comes from the TOC. Current development is `0.1.29-dev`; it inherits the accepted `0.1.28` runtime baseline and adds only the documented burn-duration, Auto-Buy and required configuration-layout delta.
 - The approved production Auto-Delete feedback remains the existing single 8-frame strip `artwork/pfUI_VendorTweaks_Burn.tga`, with `BIN_FRAME_COUNT = 8` and approximately 1.0 second default runtime.
 - Debug controls may tune/preview the existing animation but must not become a stable runtime dependency.
 - Do not introduce heuristic buyback matching: stock 1.12 buyback API does not expose an exact item link/ID suitable for a reliable Auto-Delete exemption.
@@ -34,7 +36,7 @@
 ### Protocol / Data Model
 - No external protocol is involved.
 - Existing SavedVariables/config semantics are the compatibility contract; the performance pass should not migrate or reinterpret them.
-- Vendor/delete list membership remains item-ID keyed; cached names/icons remain presentation metadata rather than behavioural authority.
+- Vendor/delete list membership remains item-ID keyed. Auto-Buy is item-ID keyed with the configured desired bag count as its value; cached name/icon/stack metadata remains presentation/defaulting data rather than behavioural authority.
 
 ### Active Decisions
 - The completed `0.1.28` performance pass remains the accepted baseline; `0.1.29-dev` is a new explicit feature line.
@@ -139,6 +141,14 @@ Post-P3 re-audit:
 - No further obvious recurring runtime cost is currently worth another optimization stage before user validation.
 
 ## Recent Relevant Commits
+- `6bff5c194649b4a0af079bdf3147880faef82488` — Update development TOC notes to include Auto-Buy; no runtime Lua change.
+- `0c0b4403a4858f2400a09dc05efedefb91be345f` — Remove temporary Lua 5.0 validation workflow after successful validation.
+- `164ec4bf1e86d6cb3f3c2e459cef87c97f7ee848` — Refactor Auto-Buy configuration refresh to stay within Lua 5.0's 32-upvalue function limit; this is the Lua-validated feature runtime.
+- `a0bcedb892a31aa311f255a9f30bfab8744a80ea` — Temporary validation workflow commit; first 0.1.29 compile exposed the 32-upvalue limit.
+- `5b695ff4e09025465e3da4bfd9deac090fe19e69` — Add Auto-Buy and burn-duration English UI labels.
+- `544cc430fd48d4cbc808bd2aeba432770462fe50` — Implement burn-duration control, Auto-Buy maintain-stock runtime and options re-layout.
+- `1a67fc8057d3c0a1c5b202e3c3cfddf2a4fd3cb1` — Begin `0.1.29-dev`.
+- `4c7e8acefeaa597bfebd87232886837c1e21a794` — Establish the 0.1.29 feature contract before code changes.
 - `9df26d5606bcfecae59d22227219fe6d939bfe94` on `main` — Release 0.1.28; current stable release.
 - `e3326556fa0158fdadd7dc16c9da700116625d80` on `dev` — Record accepted performance runtime before promotion.
 - `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` — Final user-tested dev runtime tree; dev-only timeline cleanup on top of release-facing P3 runtime.
@@ -161,7 +171,13 @@ Post-P3 re-audit:
 - Stable install naming is normalized to `pfUI_VendorTweaks`; obsolete hyphenated runtime filenames are not part of the supported install.
 
 ## Implemented / Awaiting Runtime Test
-- None. No unreleased runtime work is currently queued.
+- `0.1.29-dev` burn-duration setting: persistent positive numeric duration, default 1.00 seconds, applied to the existing approved 8-frame burn animation without an arbitrary upper cap.
+- Auto-Buy maintain-stock: disabled by default; item-ID keyed desired actual bag counts; counts bags 0-4 only; exact merchant-ID matching; normal item stack size is cached and used as the default target when an item is added.
+- Merchant batch handling: deficits are rounded up to the merchant's reported sale batch before calling `BuyMerchantItem`; this specifically requires runtime verification on stock 1.12.1 because historical documentation around the quantity argument is inconsistent.
+- Merchant ordering: existing queued sales finish before Auto-Buy runs, allowing sales to free bag space first.
+- List ownership is mutually exclusive across Auto-Vendor, Auto-Delete and Auto-Buy; explicit Auto-Buy ownership also prevents grey/custom autoselling of that item.
+- Options panel re-layout: burn duration control plus a dedicated Auto-Buy section with drop target, stack display, editable maintain quantity and remove control.
+- New user-facing strings are present in `enUS`; other locales currently use the addon's existing enUS fallback for the new keys.
 
 ## Static / Automated Checks
 - P1 and P2 passed their documented static reviews and Lua 5.0.2 checks.
@@ -176,9 +192,16 @@ Post-P3 re-audit:
 - Initial stable-tree validation run `36035277559` failed only because the temporary dev checker command referenced intentionally absent `Debug.lua`; checker self-test itself passed.
 - Corrected stable-file-set validation run `36035354158` passed the real Lua 5.0.2 checker/self-test and compiled `pfUI_VendorTweaks.lua` plus all stable locale Lua files.
 - Stable release tree `91fef0ebcafcc6a975949a992d23e69dea0be8c1` contains only `README.md`, artwork, locales, `pfUI_VendorTweaks.lua`, stable `pfUI_VendorTweaks.toc`, and `pfui-av.png`; no `DEV_PROGRESS.md`, `dev_rulebook.md`, `Debug.lua`, or temporary validation files are present.
+- Initial 0.1.29 validation run `36073383290` correctly failed the feature runtime at line 1521 with Lua 5.0.2's `too many upvalues (limit=32)` error in the enlarged configuration refresh closure; the checker self-test itself passed.
+- Commit `164ec4bf1e86d6cb3f3c2e459cef87c97f7ee848` isolated Auto-Buy list refresh into its own narrow closure rather than globalizing state or weakening the checker.
+- Follow-up run `36073598287` passed the real Lua 5.0.2 checker self-test and compiled `pfUI_VendorTweaks.lua`, `Debug.lua`, and all locale Lua files.
+- The temporary checker workflow was removed immediately afterward; current `dev` contains no validation-only workflow.
 
 ## Current Issues
-- No current runtime, static, or compiler regression is known.
+- No current static or compiler regression is known.
+- The entire `0.1.29-dev` runtime delta remains untested in-game.
+- Batched merchant purchasing is the highest-priority runtime check: `GetMerchantItemInfo` exposes a batch quantity, while historical 1.12-era documentation for `BuyMerchantItem(index, quantity)` is inconsistent about stack-vs-unit semantics. Do not promote until an actual batched reagent is verified.
+- Configuration spacing/clickability and the new quantity EditBoxes require target-client validation.
 - Historical validation note: the occupied-cursor P1 edge case was not deliberately reproduced because the 0.20-second timing window is impractical to hit manually; no related regression was observed during natural play.
 
 ## Testing
@@ -190,20 +213,27 @@ Post-P3 re-audit:
 - The stable `0.1.28` release at `9df26d5606bcfecae59d22227219fe6d939bfe94` inherits this runtime validation because its runtime Lua blob is byte-identical to the tested source; promotion changed only stable TOC metadata and removed dev-only material.
 
 ### Next Runtime Test
-- None scheduled. Resume runtime testing only when a future maintenance change introduces a new runtime delta.
+Use the exact current `0.1.29-dev` build from `dev` after this handoff commit and verify:
+1. Addon loads with no Lua errors; open VendorTweaks options and confirm the re-layout is usable/clickable.
+2. Existing Auto-Vendor still sells a configured item and existing Auto-Delete still deletes a configured self-looted item.
+3. Burn duration: verify default 1.00 seconds, then one clearly shorter value (for example 0.50) and one longer value (for example 2.00); reload and confirm the selected value persists.
+4. Auto-Buy single-unit merchant item: add it to Auto-Buy, confirm the default target matches one normal item stack when metadata is available, edit to an arbitrary target, then test below target, exactly at target and above target.
+5. Auto-Buy batched merchant item such as a reagent sold in lots: verify the resulting actual bag count reaches at least the configured maintain target without multiplying the purchase incorrectly.
+6. Reload and confirm Auto-Buy entries/quantities persist.
+7. Move the same item Auto-Buy -> Auto-Vendor -> Auto-Delete (or equivalent) and confirm only the newest list retains it.
+8. With both selling and Auto-Buy configured, open a merchant and confirm selling completes before restocking and no Auto-Buy-owned item is sold.
 
 ## Planned / Next Work
-- Begin `0.1.29-dev` from the accepted stable/runtime baseline.
-- Implement burn-duration SavedVariable + UI control and route normal burn playback through it.
-- Implement item-ID keyed Auto-Buy desired counts, bag counting, merchant matching/purchasing, and list exclusivity.
-- Re-layout the configuration panel only as required for the new controls.
-- Run static/Lua 5.0.2 checks, then stop for the documented runtime-validation gate.
+- Stop code changes at the `0.1.29-dev` runtime-validation gate.
+- Use user runtime results to correct only demonstrated issues in the new delta.
+- Do not begin promotion/release work until the requested feature behavior and existing vendor/delete regression sanity are user-accepted.
 
 ## Deferred / Out of Scope
 - Longer/higher-frame/two-part burn replacement remains shelved.
 - Buyback-specific Auto-Delete exemption remains deferred because stock 1.12 buyback API lacks an exact item link/ID; do not substitute heuristic matching.
 - Do not redesign features merely to optimize raid-only behaviour; changes should reduce general background cost while preserving functionality.
 - Do not add ClassicAPI or another DLL dependency solely for this performance pass unless a concrete measured limitation of the native 1.12.1 API requires it and the dependency is explicitly reconsidered.
+- Translating the new `0.1.29` strings into non-English locale files is deferred; functional fallback remains enUS.
 
 ## Release / Promotion Notes
 - Current stable release is `0.1.28` on `main` at `9df26d5606bcfecae59d22227219fe6d939bfe94`.
@@ -215,4 +245,4 @@ Post-P3 re-audit:
 - External/runtime prerequisites remain World of Warcraft 1.12.1 and pfUI; no optional DLL/client extension is required.
 
 ## Exact Next Step
-Bump the development TOC to `0.1.29-dev`, implement only the two requested features and required options-panel re-layout from `dev` head `f9143abb659481007ac497ec00d5451a6800a4e6`, run the real Lua 5.0.2/static checks, update this file with the resulting exact commit/check state, and hand off the runtime validation gates above.
+User runtime-test the exact `0.1.29-dev` handoff build using the "Next Runtime Test" sequence above. First priority is options/load sanity, then burn-duration timing, then Auto-Buy single-unit and batched-reagent behavior. Do not promote or broaden scope before those results.
