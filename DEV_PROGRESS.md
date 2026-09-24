@@ -3,13 +3,16 @@
 ## Current
 - Branch: `dev`
 - Version: `0.1.28-dev`
-- Current runtime head: `63a75ebdda85bec16dc074f48622fd1bcdd38576` — P2 demand-driven Auto-Delete event registration plus cheap item-ID-first loot rejection.
+- Current dev runtime head: `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`.
+- Release-facing P3 runtime commit: `50efdff8f24001010b087abdf817da86a669646a` — indexed/cached sell worker, reduced bin-animation redundant work, and demand-driven configuration drop-animation updates.
+- Dev-only P3 commit: `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` — demand-driven Debug.lua timeline dragging.
+- P2 runtime commit: `63a75ebdda85bec16dc074f48622fd1bcdd38576`.
 - P1 icon-resolution runtime commit: `a1c9b6daec6fd06b644a804b19d6490cb89babab`.
 - P1 occupied-cursor worker runtime commit: `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf`.
 - Stable baseline: `0.1.27` on `main` at `b2a90beb03464494b2cd5c699f10a0a2bd82f26b`.
-- Goal: continue the focused runtime-performance maintenance pass that removes avoidable background polling/event work without changing user-visible behaviour.
-- Current stage: P1 received partial user runtime validation and the user explicitly authorized advancing despite the two remaining Auto-Delete edge checks. P2 is now implemented, statically reviewed, and accepted by the real Lua 5.0.2 compiler checker. The combined P1+P2 runtime tree is awaiting user observation/runtime validation tonight.
-- Current scope boundary: performance-focused maintenance only. Do not reopen shelved visual/features work, change SavedVariables semantics, or alter accepted vendor/delete behaviour unless required by a proven performance fix.
+- Goal: finish the performance-maintenance pass by validating the combined P1+P2+P3 tree through normal play rather than isolated restart-heavy microtests.
+- Current stage: all planned P1/P2/P3 performance work is implemented, statically reviewed, and accepted by the real Lua 5.0.2 compiler checker. The remaining gate is user runtime observation of the combined tree.
+- Current scope boundary: performance-focused maintenance only. Do not reopen shelved visual/features work, change SavedVariables semantics, or alter accepted vendor/delete behaviour unless required by a proven regression.
 
 ## Current Design / Development Contract
 
@@ -23,7 +26,7 @@
 
 ### Invariants
 - Technical addon/folder/metadata identity is `pfUI_VendorTweaks`; stale hyphenated `pfUI-VendorTweaks.toc/.lua` files from older installs must not be used.
-- The addon version comes from the TOC. The current performance build is `0.1.28-dev`; its runtime delta is the P1 icon-resolution rewrite, the occupied-cursor delete-worker fix, and the checked P2 demand-driven Auto-Delete event rewrite.
+- The addon version comes from the TOC. The current performance build is `0.1.28-dev`; its runtime delta is the completed P1/P2 performance work plus the P3 sell-worker, burn-animation and configuration-animation micro-optimizations. `Debug.lua` also has a dev-only demand-driven timeline update cleanup.
 - The approved production Auto-Delete feedback remains the existing single 8-frame strip `artwork/pfUI_VendorTweaks_Burn.tga`, with `BIN_FRAME_COUNT = 8` and approximately 1.0 second default runtime.
 - Debug controls may tune/preview the existing animation but must not become a stable runtime dependency.
 - Do not introduce heuristic buyback matching: stock 1.12 buyback API does not expose an exact item link/ID suitable for a reliable Auto-Delete exemption.
@@ -97,19 +100,27 @@ Implemented at `63a75ebdda85bec16dc074f48622fd1bcdd38576`:
 - No chat filtering or chat-window mutation was introduced.
 
 ### P3 — merchant/config/debug micro-costs
-These are secondary and should not distract from P1/P2:
-- Sell worker: while actively selling, `GetInterval()` reparses the saved string each frame and `table.remove(sellQueue, 1)` shifts the queue. Cache the interval/use a queue index only if doing so remains simple and behaviourally identical.
-- Bin animation: active for approximately one second per deletion and performs texture/position work each frame. Leave unchanged unless focused profiling shows it matters after P1/P2.
-- Configuration drop animations: have `OnUpdate` handlers, but they are configuration-UI-only and visually short-lived.
-- Dev `Debug.lua` timeline: has an `OnUpdate` that returns immediately unless a marker is being dragged. It is absent from `main`; optional cleanup can attach/detach the handler around active dragging, but this is not a release-performance priority.
+Implemented in the final optimization burst:
+- Sell worker (`50efdff8...`): caches the active sell interval instead of reparsing `DB.interval` every frame; slider changes still update the cached value immediately.
+- Sell worker (`50efdff8...`): replaces `table.remove(sellQueue, 1)` with an indexed queue, avoiding repeated array shifts while preserving item order and fail-closed slot/ID verification.
+- Sell worker now hides immediately after the final queued sale instead of waiting for one additional throttle interval.
+- Bin animation (`50efdff8...`): relies on `PlayBinAnimation()` for the unchanged pre-burn icon state, switches the wipe anchor once at burn start, and stops repeating unchanged alpha/texture/height/position assignments before the burn.
+- Configuration drop animations (`50efdff8...`): their `OnUpdate` is attached only while the short flourish is active and removed at completion; no idle config animation handler remains.
+- Dev `Debug.lua` (`c47b9c59...`): the timeline `OnUpdate` is attached only while a marker is actively dragged and removed on mouse-up, release detection, or timeline hide.
+
+Post-P3 re-audit:
+- Runtime `OnUpdate` handlers that remain are the sell worker, bin animation/unlock frame, and delete worker. Sell/delete workers are hidden while idle; the bin frame is hidden during ordinary gameplay except for its short animation or pfUI unlock visibility.
+- `CHAT_MSG_LOOT` and `BAG_UPDATE` remain demand-driven from P2.
+- Remaining permanent events are low-frequency lifecycle/merchant events: `ADDON_LOADED`, `VARIABLES_LOADED`, `PLAYER_ENTERING_WORLD`, `PLAYER_LOGOUT`, `MERCHANT_SHOW`, and `MERCHANT_CLOSED`.
+- No further obvious recurring runtime cost is currently worth another optimization stage before user validation.
 
 ## Recent Relevant Commits
-- `63a75ebdda85bec16dc074f48622fd1bcdd38576` — Make Auto-Delete events demand-driven; current runtime head and P2 implementation.
-- `524700cede1c4d4b3c0472ae1727607081315207` — Document occupied-cursor P1 checkpoint.
+- `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` — Make dev debug timeline update demand-driven; current dev runtime head.
+- `50efdff8f24001010b087abdf817da86a669646a` — Optimize remaining release-facing runtime micro-costs.
+- `5b2451959e410bd172e7d4ee77a7b49024ab29bf` — Record P2 performance checkpoint.
+- `63a75ebdda85bec16dc074f48622fd1bcdd38576` — Make Auto-Delete events demand-driven; P2 implementation.
 - `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf` — Stop delete worker when cursor is occupied; second P1 runtime change.
 - `a1c9b6daec6fd06b644a804b19d6490cb89babab` — Remove background icon repair polling; first P1 runtime change and `0.1.28-dev` version bump.
-- `c8c55f9af9cd1dfad08d1577a8f02a4f32072eae` — Record performance audit handoff.
-- `3db6fea316d8684223dc9bd6ca745784dd831765` — Migrate development workflow.
 - Stable `main`: `b2a90beb03464494b2cd5c699f10a0a2bd82f26b` — Release 0.1.27.
 
 ## Completed / User-Verified
@@ -126,66 +137,68 @@ These are secondary and should not distract from P1/P2:
 - Stable install naming is normalized to `pfUI_VendorTweaks`; obsolete hyphenated runtime filenames are not part of the supported install.
 
 ## Implemented / Awaiting Runtime Test
-- P1 icon-resolution rewrite at `a1c9b6d...`: background icon-repair `BAG_UPDATE` subsystem removed.
-- P1 occupied-cursor worker fix at `e5e8e96...`: due worker stops instead of polling every frame while the cursor is occupied.
-- P2 at `63a75ebd...`: `CHAT_MSG_LOOT` is demand-registered only when Auto-Delete is usable, irrelevant loot is rejected by item ID before localized matching, and `BAG_UPDATE` is registered only while delete work is pending.
-- Combined P1+P2 runtime behaviour is awaiting user observation.
-- Remaining P1 validation gaps: normal configured Auto-Delete was not separately completed before P2, and the occupied-cursor timing case was not reproducible manually. These are development validation debt only; no release has been authorized with them outstanding.
+- P1 icon-resolution rewrite: background icon-repair `BAG_UPDATE` subsystem removed.
+- P1 occupied-cursor worker fix: due worker stops instead of polling every frame while the cursor is occupied.
+- P2: `CHAT_MSG_LOOT` and `BAG_UPDATE` are demand-driven and irrelevant loot is rejected by item ID before localized matching.
+- P3 release-facing runtime optimizations: cached/indexed sell worker, reduced redundant burn-frame work, and demand-driven configuration drop-animation updates.
+- P3 dev-only optimization: timeline drag `OnUpdate` is demand-driven.
+- The exact combined P1+P2+P3 dev tree at `c47b9c59...` is awaiting natural-play runtime validation.
+- Remaining historical P1 validation gap: the occupied-cursor 0.20-second edge case was not reproducible manually. Continue observing it opportunistically rather than requiring reflex testing.
 
 ## Static / Automated Checks
-- P1 icon-resolution and occupied-cursor diffs passed their documented static reviews and Lua 5.0.2 checks.
-- Exact P2 comparison `524700c... -> 63a75eb...` is one runtime commit modifying only `pfUI_VendorTweaks.lua`: 36 additions, 11 deletions.
-- Static review confirms there is exactly one `RegisterEvent("CHAT_MSG_LOOT")` site and one matching unregister site; there is no unconditional startup registration.
-- Static review confirms there is exactly one `RegisterEvent("BAG_UPDATE")` site, reached only after a relevant configured self-loot arms pending deletion, and one unregister site reached when pending work is cleared.
-- The old expensive ordering `IsSelfLootMessage -> GetIDFromLink/delete-list check` is gone; current ordering is `GetIDFromLink -> DB.deleteList -> IsSelfLootMessage`.
-- SavedVariables shape, delete timing constants, item-ID list semantics, vendor engine, feedback settings, localization matcher, and vendor-purchase exemption semantics were not intentionally changed.
-- GitHub Actions run `36028964709` on the temporary validation branch passed: workflow setup, canonical Lua 5.0.2 checker reconstruction, checker self-test, and `check_lua50.sh pfUI_VendorTweaks.lua Debug.lua locales`.
-- The temporary validation branch was reset back to `63a75ebdda85bec16dc074f48622fd1bcdd38576` after the successful run; no validation workflow or trigger file remains in the runtime tree.
+- P1 and P2 passed their documented static reviews and Lua 5.0.2 checks.
+- Exact P3 comparison `5b24519... -> c47b9c5...` contains two coherent commits modifying only `pfUI_VendorTweaks.lua` and dev-only `Debug.lua`.
+- No `table.remove(sellQueue, 1)` remains; sell order is maintained by `sellQueueIndex`.
+- Sell interval is cached for active work and updated immediately by the configuration slider.
+- Configuration drop-animation `OnUpdate` is attached in `Play()` and explicitly removed at animation completion; there is no permanent idle guard handler.
+- The bin animation no longer reapplies unchanged pre-burn visual state every frame and only reapplies the wipe anchor on the transition into wiping.
+- Debug timeline has no permanent `timeline:SetScript("OnUpdate", function...)`; it attaches the named update handler only during marker dragging and clears it on all drag termination paths.
+- Post-P3 event/OnUpdate inventory found no further high-frequency idle path beyond already-hidden workers and the intentional bin animation/unlock frame.
+- GitHub Actions run `36030161209` passed the canonical Lua 5.0.2 checker reconstruction, checker self-test, and compilation of `pfUI_VendorTweaks.lua`, `Debug.lua`, and all locale Lua files.
+- Temporary validation branch `validation/lua50-p3` was reset back to `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`; no temporary workflow remains in the runtime tree.
 
 ## Current Issues
-- The combined P1+P2 performance tree has not yet had an end-to-end Auto-Delete runtime observation after the P2 event-registration rewrite.
-- Normal configured Auto-Delete still needs to be observed in ordinary play.
-- The occupied-cursor P1 edge case remains unproven at runtime because the 0.20-second timing window was not practical to reproduce manually.
-- No current static/compiler failure is known.
+- The combined P1+P2+P3 performance tree has not yet received an end-to-end natural-play runtime result.
+- Normal configured Auto-Delete still needs to be observed after the P2/P3 changes.
+- The occupied-cursor P1 edge case remains runtime-unproven because the timing window is impractical to reproduce manually.
+- No current static/compiler failure or additional obvious performance hotspot is known.
 
 ## Testing
 
 ### Last Runtime Test
-- Version/runtime commit: `0.1.28-dev` P1 runtime tree at `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf` (with later documentation-only head `524700c...`).
+- Version/runtime commit: `0.1.28-dev` P1 runtime tree at `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf`.
 - Passed: login, reload, zoning; config/list/icon presentation; adding/removing Auto-Vendor and Auto-Delete entries; ordinary bag activity; Auto-Vendor behaviour.
-- Deferred: normal configured Auto-Delete was left for later observation.
+- Deferred: normal configured Auto-Delete was left for natural play.
 - Not reproduced: occupied-cursor Auto-Delete edge case because the worker timing window was too short to hit reliably by hand.
-- Decision: user explicitly authorized advancing to P2 with those two validation gaps and will watch addon behaviour during normal play.
+- Decision: user explicitly chose to combine later optimizations and validate them through natural play instead of repeated restart-heavy microtests.
 
 ### Next Runtime Test
-Exercise the exact combined P1+P2 runtime tree at `63a75ebdda85bec16dc074f48622fd1bcdd38576`:
-- normal login/reload/zoning with no Lua errors;
-- normal configured Auto-Delete with a clear cursor;
-- add and remove Auto-Delete entries while the config is open, including removing the final entry and adding it back;
-- toggle Auto-Delete OFF/ON and confirm behaviour resumes correctly;
-- loot unrelated items, including group/raid loot traffic where practical, and confirm no visible behavioural regression;
-- buy a configured Auto-Delete item from a merchant and confirm the existing vendor-purchase exemption still prevents deletion;
-- confirm Auto-Vendor/custom sales remain unchanged;
-- opportunistically watch for occupied-cursor Auto-Delete behaviour, but do not require a reflex-based reproduction unless a real symptom appears.
+Use the exact current `0.1.28-dev` tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` normally. During natural play, watch for:
+- login/reload/zoning Lua errors;
+- normal Auto-Vendor and grey-selling throughput/order at the configured throttle;
+- changing the sell-speed slider and later selling items at the new setting;
+- normal Auto-Delete, delete animation and delete chat;
+- Auto-Delete OFF/ON and add/remove-list behaviour;
+- vendor-purchase Auto-Delete exemption;
+- ordinary and group/raid loot traffic;
+- configuration drop flourishes when adding list items;
+- if using dev controls, timeline marker dragging/preview;
+- any missed sales/deletes, unintended deletes, visual regression, stuck worker, or unusual performance behaviour.
 
-This runtime observation is the gate before any further performance rewrite or release promotion.
+A normal play session covering the addon’s ordinary vendor/delete use is preferred over more isolated microtests.
 
 ## Planned / Next Work
-1. P1 icon-repair removal — implemented, checked, and partially runtime validated.
-2. P1 occupied-cursor worker fix — implemented and checked; edge case remains runtime-unproven.
-3. P2 demand-driven `BAG_UPDATE` registration — implemented and checked at `63a75ebd...`.
-4. P2 `CHAT_MSG_LOOT` registration/filter-order optimization — implemented and checked at `63a75ebd...`.
-5. User observe/runtime-test the exact combined P1+P2 tree during normal play.
-6. After that result, re-audit remaining runtime `OnUpdate` and event registrations.
-7. Only consider P3 merchant/config/debug micro-optimizations if the re-audit shows worthwhile remaining cost.
-8. Do not promote until the complete performance runtime delta is accepted.
+1. P1/P2/P3 implementation — complete and statically/compiler checked.
+2. User runtime-observe the exact combined tree at `c47b9c59...` through normal play.
+3. Record the result against that exact commit.
+4. If behaviour is accepted, treat the performance pass as complete and prepare the normal release/promotion review against stable `main`.
+5. If a real regression appears, fix only that proven regression before promotion.
 
 ## Deferred / Out of Scope
 - Longer/higher-frame/two-part burn replacement remains shelved.
 - Buyback-specific Auto-Delete exemption remains deferred because stock 1.12 buyback API lacks an exact item link/ID; do not substitute heuristic matching.
 - Do not redesign features merely to optimize raid-only behaviour; changes should reduce general background cost while preserving functionality.
 - Do not add ClassicAPI or another DLL dependency solely for this performance pass unless a concrete measured limitation of the native 1.12.1 API requires it and the dependency is explicitly reconsidered.
-- P3 merchant/config/debug micro-optimizations are optional until P1/P2 are complete and re-audited.
 
 ## Release / Promotion Notes
 - Stable baseline to preserve is `main` `0.1.27` at `b2a90beb03464494b2cd5c699f10a0a2bd82f26b`.
@@ -197,4 +210,4 @@ This runtime observation is the gate before any further performance rewrite or r
 - External/runtime prerequisites: World of Warcraft 1.12.1 and pfUI. No optional DLL/client extension is currently required.
 
 ## Exact Next Step
-Runtime-test/observe the exact current `0.1.28-dev` combined P1+P2 runtime tree at `63a75ebdda85bec16dc074f48622fd1bcdd38576` during normal play. Prioritize normal Auto-Delete, Auto-Delete OFF/ON and list add/remove behaviour, vendor-purchase exemption, and ordinary/group loot traffic. Record any Lua errors, missed deletes, unintended deletes, or behavioural differences. Do not begin P3 or promote to `main` until this checkpoint has a clear user result.
+Runtime-observe the exact current `0.1.28-dev` combined P1+P2+P3 tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` through normal play. Prioritize ordinary Auto-Vendor/grey sales, normal Auto-Delete, sell-speed changes, delete/config animations, Auto-Delete list/toggle changes, vendor-purchase exemption and group/raid loot. Record any Lua errors, missed or unintended actions, visual differences, stuck workers or performance symptoms. Do not make further speculative performance changes before this natural-play checkpoint; if it passes, move to release/promotion review.
