@@ -11,7 +11,7 @@
 - P1 occupied-cursor worker runtime commit: `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf`.
 - Stable baseline: `0.1.27` on `main` at `b2a90beb03464494b2cd5c699f10a0a2bd82f26b`.
 - Goal: finish the performance-maintenance pass by validating the combined P1+P2+P3 tree through normal play rather than isolated restart-heavy microtests.
-- Current stage: all planned P1/P2/P3 performance work is implemented, statically reviewed, and accepted by the real Lua 5.0.2 compiler checker. The remaining gate is user runtime observation of the combined tree.
+- Current stage: all planned P1/P2/P3 performance work is implemented, statically reviewed, accepted by the real Lua 5.0.2 compiler checker, and user-verified through natural play on the exact runtime tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`. Release/promotion to stable `0.1.28` is now authorized.
 - Current scope boundary: performance-focused maintenance only. Do not reopen shelved visual/features work, change SavedVariables semantics, or alter accepted vendor/delete behaviour unless required by a proven regression.
 
 ## Current Design / Development Contract
@@ -137,13 +137,8 @@ Post-P3 re-audit:
 - Stable install naming is normalized to `pfUI_VendorTweaks`; obsolete hyphenated runtime filenames are not part of the supported install.
 
 ## Implemented / Awaiting Runtime Test
-- P1 icon-resolution rewrite: background icon-repair `BAG_UPDATE` subsystem removed.
-- P1 occupied-cursor worker fix: due worker stops instead of polling every frame while the cursor is occupied.
-- P2: `CHAT_MSG_LOOT` and `BAG_UPDATE` are demand-driven and irrelevant loot is rejected by item ID before localized matching.
-- P3 release-facing runtime optimizations: cached/indexed sell worker, reduced redundant burn-frame work, and demand-driven configuration drop-animation updates.
-- P3 dev-only optimization: timeline drag `OnUpdate` is demand-driven.
-- The exact combined P1+P2+P3 dev tree at `c47b9c59...` is awaiting natural-play runtime validation.
-- Remaining historical P1 validation gap: the occupied-cursor 0.20-second edge case was not reproducible manually. Continue observing it opportunistically rather than requiring reflex testing.
+- None for the performance pass. The exact combined P1+P2+P3 runtime tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` is user-verified and accepted.
+- Historical note: the occupied-cursor 0.20-second edge case was never deliberately reproduced because the timing window is impractical to hit manually, but no regression was observed during the accepted natural-play session.
 
 ## Static / Automated Checks
 - P1 and P2 passed their documented static reviews and Lua 5.0.2 checks.
@@ -158,41 +153,28 @@ Post-P3 re-audit:
 - Temporary validation branch `validation/lua50-p3` was reset back to `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`; no temporary workflow remains in the runtime tree.
 
 ## Current Issues
-- The combined P1+P2+P3 performance tree has not yet received an end-to-end natural-play runtime result.
-- Normal configured Auto-Delete still needs to be observed after the P2/P3 changes.
-- The occupied-cursor P1 edge case remains runtime-unproven because the timing window is impractical to reproduce manually.
-- No current static/compiler failure or additional obvious performance hotspot is known.
+- No current runtime, static, or compiler regression is known in the accepted performance tree.
+- The occupied-cursor P1 edge case was not deliberately reproduced because the 0.20-second timing window is impractical to hit manually; this is retained as historical validation context rather than a blocker.
 
 ## Testing
 
 ### Last Runtime Test
-- Version/runtime commit: `0.1.28-dev` P1 runtime tree at `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf`.
-- Passed: login, reload, zoning; config/list/icon presentation; adding/removing Auto-Vendor and Auto-Delete entries; ordinary bag activity; Auto-Vendor behaviour.
-- Deferred: normal configured Auto-Delete was left for natural play.
-- Not reproduced: occupied-cursor Auto-Delete edge case because the worker timing window was too short to hit reliably by hand.
-- Decision: user explicitly chose to combine later optimizations and validate them through natural play instead of repeated restart-heavy microtests.
+- Version/runtime commit: `0.1.28-dev` runtime tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` (current dev head later adds documentation only).
+- Result: user reports the addon appears to be working as expected during natural play.
+- Accepted coverage: combined P1/P2/P3 behaviour, including the ordinary vendor/delete/config flows the user was asked to watch during normal use.
+- No Lua errors, missed/unintended actions, visual regressions, stuck workers, or performance symptoms were reported.
+- Historical gap: the occupied-cursor 0.20-second edge case was not deliberately reproduced because the timing window is impractical to hit manually.
 
 ### Next Runtime Test
-Use the exact current `0.1.28-dev` tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` normally. During natural play, watch for:
-- login/reload/zoning Lua errors;
-- normal Auto-Vendor and grey-selling throughput/order at the configured throttle;
-- changing the sell-speed slider and later selling items at the new setting;
-- normal Auto-Delete, delete animation and delete chat;
-- Auto-Delete OFF/ON and add/remove-list behaviour;
-- vendor-purchase Auto-Delete exemption;
-- ordinary and group/raid loot traffic;
-- configuration drop flourishes when adding list items;
-- if using dev controls, timeline marker dragging/preview;
-- any missed sales/deletes, unintended deletes, visual regression, stuck worker, or unusual performance behaviour.
-
-A normal play session covering the addon’s ordinary vendor/delete use is preferred over more isolated microtests.
+- No additional pre-release runtime test is required for the accepted runtime tree.
+- Stable `0.1.28` may inherit this runtime validation only if promotion changes are limited to stable TOC metadata and removal of dev-only files/material.
 
 ## Planned / Next Work
-1. P1/P2/P3 implementation — complete and statically/compiler checked.
-2. User runtime-observe the exact combined tree at `c47b9c59...` through normal play.
-3. Record the result against that exact commit.
-4. If behaviour is accepted, treat the performance pass as complete and prepare the normal release/promotion review against stable `main`.
-5. If a real regression appears, fix only that proven regression before promotion.
+1. Record this exact runtime acceptance — complete.
+2. Compare current `dev` against stable `main`, preserving legitimate release-only content.
+3. Promote the accepted release-facing runtime to stable `0.1.28`, excluding `DEV_PROGRESS.md`, `Debug.lua`, and development-only TOC loader entries.
+4. Run final static/Lua 5.0.2 release-tree validation.
+5. Record the stable commit/version back in `DEV_PROGRESS.md` and return the addon to maintenance mode.
 
 ## Deferred / Out of Scope
 - Longer/higher-frame/two-part burn replacement remains shelved.
@@ -210,4 +192,4 @@ A normal play session covering the addon’s ordinary vendor/delete use is prefe
 - External/runtime prerequisites: World of Warcraft 1.12.1 and pfUI. No optional DLL/client extension is currently required.
 
 ## Exact Next Step
-Runtime-observe the exact current `0.1.28-dev` combined P1+P2+P3 tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` through normal play. Prioritize ordinary Auto-Vendor/grey sales, normal Auto-Delete, sell-speed changes, delete/config animations, Auto-Delete list/toggle changes, vendor-purchase exemption and group/raid loot. Record any Lua errors, missed or unintended actions, visual differences, stuck workers or performance symptoms. Do not make further speculative performance changes before this natural-play checkpoint; if it passes, move to release/promotion review.
+Promote the user-accepted runtime tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb` to stable `main` as version `0.1.28`. Compare against current `main` first; preserve legitimate release-only content, use stable TOC Title/Version metadata, and exclude `DEV_PROGRESS.md`, `Debug.lua`, and development-only loader entries. Run final Lua 5.0.2/static validation on the release tree, then record the exact stable commit and return the project to maintenance mode.
