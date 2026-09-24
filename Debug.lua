@@ -351,6 +351,8 @@ local function SnapTime(value)
   return math.floor((value / snapMs) + .5) * snapMs
 end
 
+local TimelineOnUpdate = nil
+
 local function MakeMarker(index, text)
   local marker = CreateFrame("Button", nil, ruler)
   marker:SetWidth(18)
@@ -377,10 +379,12 @@ local function MakeMarker(index, text)
     selectedMarker = this.markerIndex
     activeMarker = this.markerIndex
     RefreshSelection()
+    timeline:SetScript("OnUpdate", TimelineOnUpdate)
   end)
 
   marker:SetScript("OnMouseUp", function()
     activeMarker = nil
+    timeline:SetScript("OnUpdate", nil)
   end)
 
   return marker
@@ -399,11 +403,15 @@ local nudgePlus = MakeButton(timeline, "+", 24, 602, -31, function()
   SetMarkerTime(selectedMarker, MarkerTime(selectedMarker) + snapMs)
 end)
 
-timeline:SetScript("OnUpdate", function()
-  if not activeMarker then return end
+TimelineOnUpdate = function()
+  if not activeMarker then
+    timeline:SetScript("OnUpdate", nil)
+    return
+  end
 
   if IsMouseButtonDown and not IsMouseButtonDown("LeftButton") then
     activeMarker = nil
+    timeline:SetScript("OnUpdate", nil)
     return
   end
 
@@ -418,6 +426,11 @@ timeline:SetScript("OnUpdate", function()
 
   local value = SnapTime((x / RULER_WIDTH) * TIMELINE_MS)
   SetMarkerTime(activeMarker, value)
+end
+
+timeline:SetScript("OnHide", function()
+  activeMarker = nil
+  timeline:SetScript("OnUpdate", nil)
 end)
 
 local function ToggleTimeline()
