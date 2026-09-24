@@ -2,11 +2,13 @@
 
 ## Current
 - Branch: `dev`
-- Version: `0.1.27-dev`
-- Verified pre-handoff development head: `3db6fea316d8684223dc9bd6ca745784dd831765`.
-- Handoff: the documentation-only performance-audit commit immediately following that verified head; use the current remote `dev` head as the exact handoff commit.
+- Version: `0.1.28-dev`
+- Stage-1 runtime implementation commit: `a1c9b6daec6fd06b644a804b19d6490cb89babab` — removed the background icon-repair listener and bumped the TOC from `0.1.27-dev`.
+- Lua-checker plumbing commit: `a209d43607508f2b33552cdf6e3da98bc8ca60e1` — temporary CI/checker plumbing only; no runtime addon change after `a1c9b6d`.
+- Handoff: the current remote `dev` head containing the temporary-workflow cleanup and this status update; use the current remote `dev` head as the exact handoff commit.
 - Stable baseline: `0.1.27` on `main` at `b2a90beb03464494b2cd5c699f10a0a2bd82f26b`.
-- Goal: perform a focused runtime-performance maintenance pass that removes avoidable background polling/event work without changing user-visible behaviour.
+- Goal: continue the focused runtime-performance maintenance pass that removes avoidable background polling/event work without changing user-visible behaviour.
+- Current stage: P1 icon-repair removal is implemented, statically reviewed, and accepted by the real Lua 5.0.2 compiler checker. It has not yet been user runtime-tested. The later Auto-Delete worker/event rewrite has not begun.
 - Current scope boundary: performance-focused maintenance only. Do not reopen shelved visual/features work, change SavedVariables semantics, or alter accepted vendor/delete behaviour unless required by a proven performance fix.
 
 ## Current Design / Development Contract
@@ -21,7 +23,7 @@
 
 ### Invariants
 - Technical addon/folder/metadata identity is `pfUI_VendorTweaks`; stale hyphenated `pfUI-VendorTweaks.toc/.lua` files from older installs must not be used.
-- The addon version comes from the TOC. This documentation-only audit leaves it at `0.1.27-dev`; the implementation pass should advance to the next development version before runtime changes.
+- The addon version comes from the TOC. The current performance build is `0.1.28-dev`; its only runtime delta so far is the checked P1 icon-resolution rewrite.
 - The approved production Auto-Delete feedback remains the existing single 8-frame strip `artwork/pfUI_VendorTweaks_Burn.tga`, with `BIN_FRAME_COUNT = 8` and approximately 1.0 second default runtime.
 - Debug controls may tune/preview the existing animation but must not become a stable runtime dependency.
 - Do not introduce heuristic buyback matching: stock 1.12 buyback API does not expose an exact item link/ID suitable for a reliable Auto-Delete exemption.
@@ -51,22 +53,19 @@ The audit was performed against `dev` at `3db6fea316d8684223dc9bd6ca745784dd8317
 - The strongest opportunities are therefore demand-driven event registration and edge cases that can leave temporary work active longer than intended.
 
 ### P1 — remove background icon-repair listening
-Current behaviour:
-- Missing configured-item icons populate `missingIconIDs`.
-- While any unresolved icon remains, `iconRepairFrame` registers `BAG_UPDATE`.
-- Each changed bag is scanned slot-by-slot looking for unresolved IDs.
-- An item whose icon cannot be resolved can therefore keep this listener armed for the whole session.
+### P1 — background icon-repair listening removed in `0.1.28-dev`
+Implemented at `a1c9b6daec6fd06b644a804b19d6490cb89babab`:
+- Deleted the session-persistent `missingIconIDs` state, `iconRepairFrame`, `BAG_UPDATE` registration/re-registration logic, and zoning-time icon-repair initialization.
+- Configuration `Refresh()` now resolves incomplete listed-item metadata on demand with `ResolveListedItemIcons()`.
+- The refresh path first asks `GetItemInfo`, then performs at most one explicit bag pass for still-missing listed IDs.
+- Item addition preserves the existing direct cursor-link/cache lookup and exact item-ID bag fallback, then refreshes the configuration list.
+- If an icon still cannot be resolved, the existing question-mark texture remains the display fallback and no gameplay listener is armed.
+- Item-ID list membership, shared `DB.items` metadata cache, SavedVariables shape, vendor behaviour, delete behaviour, and the main Auto-Delete `BAG_UPDATE` path were not changed.
 
-Why this matters:
-- Icon data is configuration/presentation metadata, not runtime vendor/delete correctness.
-- Permanent `BAG_UPDATE` work is exactly the kind of individually-small background cost that compounds across many addons.
-
-Intended direction:
-- Remove the session-long background icon-repair listener.
-- Resolve cached icons on demand when the VendorTweaks configuration panel is opened/refreshed and when an item is added.
-- A one-shot bag scan at those explicit UI actions is acceptable.
-- If an icon still cannot be resolved, display the existing question-mark fallback and stop; do not keep gameplay listeners active waiting for it.
-- Preserve existing item-ID membership and metadata caching semantics.
+Status:
+- Static diff review passed.
+- Real Lua 5.0.2 checker/self-test passed.
+- User runtime validation: pending.
 
 ### P1 — eliminate occupied-cursor delete-worker spin
 Current behaviour:
@@ -112,12 +111,12 @@ These are secondary and should not distract from P1/P2:
 - Dev `Debug.lua` timeline: has an `OnUpdate` that returns immediately unless a marker is being dragged. It is absent from `main`; optional cleanup can attach/detach the handler around active dragging, but this is not a release-performance priority.
 
 ## Recent Relevant Commits
-- Handoff commit: current remote `dev` head containing this performance-audit report.
+- Handoff commit: current remote `dev` head containing the checker-workflow cleanup and status update.
+- `a209d43607508f2b33552cdf6e3da98bc8ca60e1` — Fix temporary Lua 5.0 checker plumbing; CI/tooling only, no runtime addon delta.
+- `a1c9b6daec6fd06b644a804b19d6490cb89babab` — Remove background icon repair polling; stage-1 runtime implementation and `0.1.28-dev` version bump.
+- `c8c55f9af9cd1dfad08d1577a8f02a4f32072eae` — Record performance audit handoff.
 - `3db6fea316d8684223dc9bd6ca745784dd831765` — Migrate development workflow; verified pre-audit head.
 - `1f1b8e573151b9c694038bcd65c4889ee3eeff78` — Mark VendorTweaks feature-complete.
-- `8d4075a77b324b127a14f2ab163ae744740fcebd` — Record 0.1.27 release.
-- `d3b272050cf75665895ce3113771946f280bef8b` — Record 0.1.27 stable approval.
-- `435bc1873bc6de201798855c1edfe84d0e9bfa99` — Record restored 8-frame burn test state.
 - Stable `main`: `b2a90beb03464494b2cd5c699f10a0a2bd82f26b` — Release 0.1.27.
 
 ## Completed / User-Verified
@@ -131,20 +130,26 @@ These are secondary and should not distract from P1/P2:
 - Stable install naming is normalized to `pfUI_VendorTweaks`; obsolete hyphenated runtime filenames are not part of the supported install.
 
 ## Implemented / Awaiting Runtime Test
-- None. The performance audit/report is documentation-only; no runtime optimization has been implemented yet.
+- `0.1.28-dev` P1 icon-resolution rewrite: the background icon-repair `BAG_UPDATE` subsystem is gone and icon repair is now configuration/item-addition demand only.
+- The exact runtime code introduced at `a1c9b6daec6fd06b644a804b19d6490cb89babab` is still the current runtime code; `a209d43607508f2b33552cdf6e3da98bc8ca60e1` changed only temporary checker plumbing.
+- No occupied-cursor delete-worker, main Auto-Delete event-registration, loot-filtering, or P3 changes have been implemented yet.
 
 ## Static / Automated Checks
-- Audit confirmed `pfUI_VendorTweaks.lua` on `dev` at `3db6fea316d8684223dc9bd6ca745784dd831765` was byte-identical to stable `main` `0.1.27`.
-- Static inspection identified runtime `OnUpdate` handlers for the sell worker, bin animation, delete worker, configuration drop animations, and dev-only debug timeline, with the normal visibility/lifetime characteristics documented above.
-- Static inspection identified permanent main event registrations including `CHAT_MSG_LOOT` and `BAG_UPDATE`, plus the conditional icon-repair `BAG_UPDATE` listener.
-- No runtime code changed during the audit, so no new Lua compiler/runtime validation was required for this documentation handoff.
-- Existing stable checks remain: stable TOC metadata is `0.1.27`, `Debug.lua` is absent from stable, stable runtime/artwork match the approved build, and no speculative Fire/Ash replacement is present.
+- Static diff review of `c8c55f9... -> a1c9b6d...` confirmed the runtime scope is limited to `pfUI_VendorTweaks.lua` plus the TOC version bump.
+- Static assertions confirmed there are no remaining `missingIconIDs`, `iconRepairFrame`, `InitializeIconRepair`, or `UpdateIconRepairListener` references.
+- Exactly one `RegisterEvent("BAG_UPDATE")` remains in runtime code: the pre-existing main Auto-Delete event path, intentionally untouched in this stage.
+- The existing question-mark row fallback and drop-animation fallback remain present.
+- SavedVariables declaration/migration, item-ID list maps, direct exact-ID item-addition bag lookup, vendor engine, and delete engine were unchanged by this stage.
+- Canonical checker source: VanillaTemplate `tools/lua50/` scripts as of `9093fac60f210dedd87d5e2d0f265a97494f999f`.
+- The checker run reconstructed those exact scripts and verified the official Lua 5.0.2 source archive checksum `a6c85d85f912e1c321723084389d63dee7660b81b8292452b190ea7190dd73bc`.
+- GitHub Actions run `36008345150`: Lua 5.0.2 checker self-test passed and `check_lua50.sh pfUI_VendorTweaks.lua Debug.lua locales` passed all 10 Lua files.
+- An earlier temporary run (`36008134817`) stopped before compilation because its job token could not clone the separate VanillaTemplate repository; that tooling-only failure was replaced by the successful checksum-pinned checker run above.
 
 ## Current Issues
-- Background icon-repair `BAG_UPDATE` can remain active indefinitely for an unresolved configured-item icon and scan changed bag slots throughout gameplay.
-- Auto-Delete's main event frame receives every `BAG_UPDATE` even when no deletion is pending.
-- Auto-Delete self-loot filtering does avoidable localized pattern work before confirming the looted item is configured for deletion.
 - The delete worker can remain shown and poll every frame indefinitely if its delete step becomes due while the player holds an item on the cursor.
+- Auto-Delete's main event frame still receives every `BAG_UPDATE` even when no deletion is pending.
+- Auto-Delete self-loot filtering still does avoidable localized pattern work before confirming the looted item is configured for deletion.
+- Stage-1 `0.1.28-dev` icon-resolution behaviour is checked but has not yet been exercised in the target client.
 
 ## Testing
 
@@ -155,28 +160,25 @@ These are secondary and should not distract from P1/P2:
 - Not tested: the proposed performance changes do not exist yet.
 
 ### Next Runtime Test
-After the performance implementation is complete, test the exact new `dev` commit for:
-- normal login/reload and zoning;
-- opening VendorTweaks config with fully cached items and with an intentionally unresolved/missing icon;
-- adding/removing Auto-Vendor and Auto-Delete list entries and verifying labels/icons/fallbacks;
-- Auto-Delete of a configured self-looted item;
-- multiple rapid configured loot events to exercise debounce/settling behaviour;
-- cursor-occupied edge case when a configured deletion becomes due, confirming no wrong deletion and no stuck worker;
-- non-configured/self/other-player loot traffic remaining inert;
-- merchant purchases of delete-listed items still respecting the existing purchase exemption;
-- Auto-Vendor/custom sales, grey takeover, throttle interval and sell-chat behaviour;
-- Auto-Delete animation/chat toggles and the approved 8-frame visual;
-- confirmation that no relevant `BAG_UPDATE` or `CHAT_MSG_LOOT` listeners/workers remain active outside the states that actually require them.
+Stage 1 is not yet user runtime-tested. At the next runtime checkpoint, exercise the exact current `0.1.28-dev` handoff for:
+- normal login/reload and zoning with no Lua errors;
+- opening VendorTweaks config with fully cached list entries;
+- opening/refreshing with an intentionally unresolved/missing icon and confirming the existing question-mark fallback;
+- adding Auto-Vendor and Auto-Delete entries from the cursor and confirming names/icons resolve immediately when available;
+- removing entries and confirming shared metadata pruning semantics remain correct;
+- ordinary bag activity after closing the config, confirming no new icon-related behaviour or errors occur in gameplay;
+- sanity checks that Auto-Vendor/custom sales and configured Auto-Delete still behave as before.
+
+The final complete performance delta must still receive the broader runtime test documented by the remaining performance stages before any promotion to `main`.
 
 ## Planned / Next Work
-1. Begin a new performance maintenance version (next dev version after `0.1.27-dev`) before runtime edits.
-2. Implement P1 icon-repair removal first: make icon resolution configuration-driven and delete the background icon-repair `BAG_UPDATE` subsystem.
-3. Redesign the occupied-cursor delete-worker path so it cannot spin every frame indefinitely while preserving fail-closed deletion safety.
-4. Make Auto-Delete `BAG_UPDATE` registration demand-driven around actual pending deletions.
-5. Reorder/limit `CHAT_MSG_LOOT` handling so irrelevant raid/group loot exits as cheaply as safely possible.
-6. Re-audit all runtime `OnUpdate` and event registrations after the rewrite; only then consider the P3 micro-optimizations.
-7. Run the real Lua 5.0 compatibility/compiler checks available in the development environment plus static diff review.
-8. User runtime-test the exact resulting `dev` commit before any promotion.
+1. P1 icon-repair removal — implemented and checked in `0.1.28-dev`.
+2. Redesign the occupied-cursor delete-worker path so it cannot spin every frame indefinitely while preserving fail-closed deletion safety.
+3. Make Auto-Delete `BAG_UPDATE` registration demand-driven around actual pending deletions.
+4. Reorder/limit `CHAT_MSG_LOOT` handling so irrelevant raid/group loot exits as cheaply as safely possible.
+5. Re-audit all runtime `OnUpdate` and event registrations after the rewrite; only then consider the P3 micro-optimizations.
+6. Run the real Lua 5.0 compatibility/compiler checks plus static diff review after each coherent runtime stage.
+7. User runtime-test the exact resulting full performance `dev` commit before any promotion.
 
 ## Deferred / Out of Scope
 - Longer/higher-frame/two-part burn replacement remains shelved.
@@ -195,4 +197,7 @@ After the performance implementation is complete, test the exact new `dev` commi
 - External/runtime prerequisites: World of Warcraft 1.12.1 and pfUI. No optional DLL/client extension is currently required.
 
 ## Exact Next Step
+Begin the next performance stage from the current remote `dev` handoff: redesign the occupied-cursor Auto-Delete worker path so a due deletion cannot leave a visible worker polling every frame while the cursor is occupied. Preserve fail-closed safety, the existing delete debounce/settling semantics that are required for correctness, and all current list/SavedVariables/feedback behaviour. Do not yet change the main Auto-Delete `BAG_UPDATE` registration or `CHAT_MSG_LOOT` filtering as part of that worker-only step. Run static review and the real Lua 5.0.2 checker again before proceeding to the subsequent event-registration stage. Do not promote to `main` until the complete performance runtime delta is user-tested and accepted.
+
+
 Start the performance build from the current remote `dev` handoff. First bump the TOC to the next development version, then remove the background icon-repair `BAG_UPDATE` subsystem and replace it with on-demand icon resolution during configuration refresh/item addition only. Preserve question-mark fallback behaviour and all vendor/delete list semantics. Do not begin the later Auto-Delete worker/event rewrite until that first change has passed static review and the real Lua 5.0 compiler/compatibility checks.
