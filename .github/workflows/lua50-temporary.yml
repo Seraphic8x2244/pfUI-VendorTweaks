@@ -15,15 +15,191 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Checkout canonical VanillaTemplate checker
-        uses: actions/checkout@v4
-        with:
-          repository: Seraphic8x2244/VanillaTemplate
-          ref: 9093fac60f210dedd87d5e2d0f265a97494f999f
-          path: .vanilla-template
+      - name: Recreate canonical VanillaTemplate checker
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$PWD/.lua50/tools/lua50"
+          mkdir -p "$ROOT/vendor"
+
+          cat > "$ROOT/build_lua50.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          VENDOR_DIR="$SCRIPT_DIR/vendor/lua-5.0.2"
+
+          if [[ $# -ne 1 ]]; then
+            echo "Usage: $0 OUTPUT_PATH" >&2
+            exit 2
+          fi
+
+          CC_BIN="${CC:-cc}"
+          if ! command -v "$CC_BIN" >/dev/null 2>&1; then
+            echo "Lua 5.0.2 build requires an ANSI C compiler (tried '$CC_BIN')." >&2
+            exit 2
+          fi
+
+          read -r -a CFLAGS_ARRAY <<< "${LUA50_CFLAGS:--O2 -fcommon}"
+
+          OUTPUT="$1"
+          mkdir -p "$(dirname "$OUTPUT")"
+
+          "$CC_BIN" "${CFLAGS_ARRAY[@]}" \
+            -DLUA_OPNAMES \
+            -I"$VENDOR_DIR/include" \
+            -I"$VENDOR_DIR/src" \
+            "$VENDOR_DIR/src/lapi.c" \
+            "$VENDOR_DIR/src/lcode.c" \
+            "$VENDOR_DIR/src/ldebug.c" \
+            "$VENDOR_DIR/src/ldo.c" \
+            "$VENDOR_DIR/src/ldump.c" \
+            "$VENDOR_DIR/src/lfunc.c" \
+            "$VENDOR_DIR/src/lgc.c" \
+            "$VENDOR_DIR/src/llex.c" \
+            "$VENDOR_DIR/src/lmem.c" \
+            "$VENDOR_DIR/src/lobject.c" \
+            "$VENDOR_DIR/src/lopcodes.c" \
+            "$VENDOR_DIR/src/lparser.c" \
+            "$VENDOR_DIR/src/lstate.c" \
+            "$VENDOR_DIR/src/lstring.c" \
+            "$VENDOR_DIR/src/ltable.c" \
+            "$VENDOR_DIR/src/ltm.c" \
+            "$VENDOR_DIR/src/lundump.c" \
+            "$VENDOR_DIR/src/lvm.c" \
+            "$VENDOR_DIR/src/lzio.c" \
+            "$VENDOR_DIR/src/lib/lauxlib.c" \
+            "$VENDOR_DIR/src/luac/luac.c" \
+            "$VENDOR_DIR/src/luac/print.c" \
+            -lm \
+            -o "$OUTPUT"
+
+          chmod +x "$OUTPUT"
+          "$OUTPUT" -v
+          SH
+
+          cat > "$ROOT/check_lua50.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          TEMP_ROOT=""
+
+          if [[ -n "${LUA50_LUAC:-}" ]]; then
+            LUAC="$LUA50_LUAC"
+            if [[ ! -x "$LUAC" ]]; then
+              echo "LUA50_LUAC is not executable: $LUAC" >&2
+              exit 2
+            fi
+          else
+            TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/vanilla-lua50-check.XXXXXX")"
+            trap 'rm -rf "$TEMP_ROOT"' EXIT
+            LUAC="$TEMP_ROOT/luac"
+            "$SCRIPT_DIR/build_lua50.sh" "$LUAC" >/dev/null
+          fi
+
+          if [[ $# -eq 0 ]]; then
+            set -- .
+          fi
+
+          files=()
+          for input in "$@"; do
+            if [[ -f "$input" ]]; then
+              files+=("$input")
+            elif [[ -d "$input" ]]; then
+              while IFS= read -r -d '' file; do
+                case "$file" in
+                  */tools/lua50/vendor/*) continue ;;
+                esac
+                files+=("$file")
+              done < <(find "$input" -type f -name '*.lua' -print0)
+            else
+              echo "Not a file or directory: $input" >&2
+              exit 2
+            fi
+          done
+
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No Lua files found to check." >&2
+            exit 2
+          fi
+
+          for file in "${files[@]}"; do
+            "$LUAC" -p -- "$file"
+          done
+
+          echo "Lua 5.0.2 syntax check passed: ${#files[@]} file(s)."
+          SH
+
+          cat > "$ROOT/selftest.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/vanilla-lua50-selftest.XXXXXX")"
+          trap 'rm -rf "$TMP_ROOT"' EXIT
+
+          LUAC="$TMP_ROOT/luac"
+          "$SCRIPT_DIR/build_lua50.sh" "$LUAC" >/dev/null
+
+          cat > "$TMP_ROOT/valid.lua" <<'LUA'
+          local values = { 1, 2, 3 }
+          local total = 0
+
+          for i = 1, table.getn(values) do
+            total = total + values[i]
+          end
+
+          local function double(value)
+            return value * 2
+          end
+
+          return double(total)
+          LUA
+
+          cat > "$TMP_ROOT/modern.lua" <<'LUA'
+          local values = { 1, 2, 3 }
+          return #values
+          LUA
+
+          {
+            printf 'local '
+            for ((i = 1; i <= 201; i++)); do
+              if ((i > 1)); then printf ', '; fi
+              printf 'v%d' "$i"
+            done
+            printf '\n'
+          } > "$TMP_ROOT/too-many-locals.lua"
+
+          LUA50_LUAC="$LUAC" "$SCRIPT_DIR/check_lua50.sh" "$TMP_ROOT/valid.lua" >/dev/null
+
+          if LUA50_LUAC="$LUAC" "$SCRIPT_DIR/check_lua50.sh" "$TMP_ROOT/modern.lua" >"$TMP_ROOT/modern.out" 2>&1; then
+            echo "Self-test failed: Lua 5.1+ length syntax unexpectedly compiled." >&2
+            exit 1
+          fi
+
+          if LUA50_LUAC="$LUAC" "$SCRIPT_DIR/check_lua50.sh" "$TMP_ROOT/too-many-locals.lua" >"$TMP_ROOT/locals.out" 2>&1; then
+            echo "Self-test failed: 201 locals unexpectedly compiled." >&2
+            exit 1
+          fi
+
+          if ! grep -qi 'too many local' "$TMP_ROOT/locals.out"; then
+            echo "Self-test failed: 201-local rejection did not report the expected compiler limit." >&2
+            cat "$TMP_ROOT/locals.out" >&2
+            exit 1
+          fi
+
+          echo "Lua 5.0.2 tool self-test passed."
+          SH
+
+          chmod +x "$ROOT/build_lua50.sh" "$ROOT/check_lua50.sh" "$ROOT/selftest.sh"
+
+          curl -fsSLo "$RUNNER_TEMP/lua-5.0.2.tar.gz" https://www.lua.org/ftp/lua-5.0.2.tar.gz
+          echo "a6c85d85f912e1c321723084389d63dee7660b81b8292452b190ea7190dd73bc  $RUNNER_TEMP/lua-5.0.2.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/lua-5.0.2.tar.gz" -C "$ROOT/vendor"
 
       - name: Verify Lua 5.0.2 checker
-        run: bash .vanilla-template/tools/lua50/selftest.sh
+        run: bash .lua50/tools/lua50/selftest.sh
 
       - name: Compile VendorTweaks with Lua 5.0.2
-        run: bash .vanilla-template/tools/lua50/check_lua50.sh pfUI_VendorTweaks.lua Debug.lua locales
+        run: bash .lua50/tools/lua50/check_lua50.sh pfUI_VendorTweaks.lua Debug.lua locales
