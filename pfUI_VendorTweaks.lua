@@ -732,10 +732,32 @@ binFrame:Hide()
 local deleteWorker = CreateFrame("Frame", "pfUI_VendorTweaks_DeleteWorker", UIParent)
 deleteWorker:Hide()
 
+-- The main event frame is created after the configuration UI is defined, but
+-- Auto-Delete helpers need to update its demand-driven event registrations.
+local eventFrame = nil
+
 local function StopDeleteWorker(clearPending)
-  if clearPending then pendingDeleteIDs = {} end
+  if clearPending then
+    pendingDeleteIDs = {}
+    if eventFrame then eventFrame:UnregisterEvent("BAG_UPDATE") end
+  end
   deletePendingAt = nil
   deleteWorker:Hide()
+end
+
+local function HasDeleteListItems()
+  return DB and type(DB.deleteList) == "table" and next(DB.deleteList) ~= nil
+end
+
+local function UpdateAutoDeleteEventRegistration()
+  if not eventFrame then return end
+
+  if Enabled("autoDelete") and HasDeleteListItems() then
+    eventFrame:RegisterEvent("CHAT_MSG_LOOT")
+  else
+    eventFrame:UnregisterEvent("CHAT_MSG_LOOT")
+    StopDeleteWorker(true)
+  end
 end
 
 local function ExecuteSafeDeleteStep()
@@ -947,11 +969,7 @@ local function BuildComponentsPanel(parent)
     if not DB then return end
     DB.autoDelete = this:GetChecked() and "1" or "0"
     UpdateCheckboxMark(this)
-    if not Enabled("autoDelete") then
-      pendingDeleteIDs = {}
-      deletePendingAt = nil
-      deleteWorker:Hide()
-    end
+    UpdateAutoDeleteEventRegistration()
   end)
 
   -- Keep Auto-Delete feedback controls between the feature toggle and its
@@ -1272,6 +1290,7 @@ local function BuildComponentsPanel(parent)
       row.del:SetScript("OnClick", function()
         DB.deleteList[idKey] = nil
         PruneItemInfo(idKey)
+        UpdateAutoDeleteEventRegistration()
         Refresh()
       end)
       row:Show()
@@ -1305,6 +1324,7 @@ local function BuildComponentsPanel(parent)
       DB.vendorList[itemID] = nil
       SetDropHighlight(deleteDrop, false)
     end
+    UpdateAutoDeleteEventRegistration()
 
     ClearCursor()
 
@@ -1358,15 +1378,13 @@ end
 -- -----------------------------------------------------------------------------
 -- Events
 -- -----------------------------------------------------------------------------
-local eventFrame = CreateFrame("Frame")
+eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("VARIABLES_LOADED")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_LOGOUT")
 eventFrame:RegisterEvent("MERCHANT_SHOW")
 eventFrame:RegisterEvent("MERCHANT_CLOSED")
-eventFrame:RegisterEvent("CHAT_MSG_LOOT")
-eventFrame:RegisterEvent("BAG_UPDATE")
 
 eventFrame:SetScript("OnEvent", function()
   if event == "ADDON_LOADED" then
@@ -1374,6 +1392,7 @@ eventFrame:SetScript("OnEvent", function()
       InitDB()
       InitLootPatterns()
       ApplyGreyTakeover()
+      UpdateAutoDeleteEventRegistration()
     end
 
   elseif event == "VARIABLES_LOADED" then
@@ -1382,11 +1401,13 @@ eventFrame:SetScript("OnEvent", function()
       InitDB()
       InitLootPatterns()
       ApplyGreyTakeover()
+      UpdateAutoDeleteEventRegistration()
     end
 
   elseif event == "PLAYER_ENTERING_WORLD" then
     if not DB then InitDB() end
     ApplyGreyTakeover()
+    UpdateAutoDeleteEventRegistration()
     InstallMerchantPurchaseHooks()
 
   elseif event == "PLAYER_LOGOUT" then
@@ -1414,11 +1435,15 @@ eventFrame:SetScript("OnEvent", function()
     vendorPurchaseExemptions = {}
 
   elseif event == "CHAT_MSG_LOOT" then
-    if DB and Enabled("autoDelete") and arg1 and IsSelfLootMessage(arg1) then
+    -- Reject unrelated loot by item ID before doing localized self-loot pattern
+    -- matching. This event is registered only while Auto-Delete is enabled and
+    -- the delete list is non-empty.
+    if DB and arg1 then
       local id = GetIDFromLink(arg1)
-      if id and DB.deleteList[id] then
+      if id and DB.deleteList[id] and IsSelfLootMessage(arg1) then
         if not ConsumeVendorPurchaseExemption(id) then
           pendingDeleteIDs[id] = true
+          eventFrame:RegisterEvent("BAG_UPDATE")
         end
       end
     end
