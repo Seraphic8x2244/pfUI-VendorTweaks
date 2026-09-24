@@ -744,8 +744,14 @@ local function ExecuteSafeDeleteStep()
     return
   end
 
-  -- Never interfere with an item already held by the player.
-  if CursorHasItem() then return end
+  -- Never interfere with an item already held by the player. If the cursor is
+  -- occupied when this step becomes due, stop this worker cycle immediately
+  -- but retain pending IDs; the next legitimate BAG_UPDATE will re-arm the
+  -- existing debounce instead of leaving this frame polling every update.
+  if CursorHasItem() then
+    StopDeleteWorker(false)
+    return
+  end
 
   for bag = 0, 4 do
     local size = GetContainerNumSlots(bag) or 0
@@ -791,7 +797,6 @@ end
 
 deleteWorker:SetScript("OnUpdate", function()
   if not deletePendingAt or GetTime() < deletePendingAt then return end
-  if CursorHasItem() then return end
   ExecuteSafeDeleteStep()
 end)
 
