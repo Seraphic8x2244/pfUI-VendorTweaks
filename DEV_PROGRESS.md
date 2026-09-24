@@ -9,10 +9,10 @@
 - P2 runtime commit: `63a75ebdda85bec16dc074f48622fd1bcdd38576`.
 - P1 runtime commits: `a1c9b6daec6fd06b644a804b19d6490cb89babab` and `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf`.
 - Feature-pass baseline: `f9143abb659481007ac497ec00d5451a6800a4e6`.
-- Current pre-handoff dev head: `6bff5c194649b4a0af079bdf3147880faef82488`.
-- Lua-validated feature runtime commit: `164ec4bf1e86d6cb3f3c2e459cef87c97f7ee848`; later commits only removed the temporary checker and updated TOC notes.
-- Mode: runtime-validation gate for the explicit `0.1.29-dev` feature pass.
-- Current scope: validate the new burn-duration control, Auto-Buy maintain-stock behavior and options re-layout while preserving the accepted `0.1.28` vendor/delete baseline.
+- Current dev head before the options redesign contract: `3fc2aee6626aceaf18964de96a0a1071cfa79286`; this is the prior handoff plus the repository-wide rulebook versioning clarification only.
+- Lua-validated `0.1.29-dev` feature runtime commit: `164ec4bf1e86d6cb3f3c2e459cef87c97f7ee848`; later commits did not change runtime Lua.
+- Mode: implementation pass for the user-approved streamlined options design; the next testable build must be `0.1.30-dev` under the current versioning rule.
+- Current scope: keep the existing `0.1.29-dev` Auto-Buy/burn backend, simplify list opt-in semantics, add Buy chat feedback, and rebuild the options layout before returning to runtime validation.
 
 ## Current Design / Development Contract
 
@@ -48,7 +48,11 @@
 ## Active Feature Pass — 0.1.29-dev
 
 ### Requested behaviour
-- Auto-Delete burn feedback gets a persistent user setting for total animation duration. Existing 1.0-second behaviour remains the default and the same 8-frame strip/progression is retained.
+- Installing VendorTweaks means VendorTweaks owns pfUI grey auto-selling; there is no separate takeover checkbox.
+- Auto-Vendor, Auto-Delete and Auto-Buy require no enable checkboxes. Putting an item in the corresponding list is the explicit opt-in; an empty list means no configured work for that feature.
+- Sell delay is user-configurable from `0.00` to `0.20` seconds.
+- The approved 8-frame Auto-Delete burn animation remains production behaviour and gets an `Animation Duration` slider from `0.20` to `1.00` seconds.
+- Chat feedback is independently configurable for Sell, Delete and Buy.
 - Auto-Buy maintains a configured actual item count in bags `0`–`4` when a merchant selling that item is opened.
 - Auto-Buy configuration is item-ID keyed. Each entry stores its desired bag count; cached name/icon/stack metadata remains presentation/defaulting data.
 - Dropping a new Auto-Buy item defaults its desired amount to one normal item stack when `GetItemInfo` supplies a stack size, otherwise `1`. The amount remains directly editable.
@@ -58,10 +62,11 @@
 - Do not add speculative buy throttling, confirmation systems, bank counting, restock categories, or unrelated vendor features in this pass.
 
 ### UI direction
-- Keep the existing two-column Auto-Vendor / Auto-Delete lists.
-- Add burn-duration control with the Auto-Delete feedback controls.
-- Add a dedicated Auto-Buy section below the existing two columns, with a drop target and editable desired quantity on each configured row.
-- Re-layout only as much as needed for clear spacing and clickability; preserve the accepted pfUI styling patterns.
+- Header controls: `Sell Delay` slider on the left (`0.00`–`0.20s`) and `Animation Duration` slider on the right (`0.20`–`1.00s`).
+- One compact `Chat Messages` row below them: `Sell [x]`, `Delete [x]`, `Buy [x]`.
+- Auto-Buy comes next at full width: one drop target followed by compact horizontal item-icon + maintain-quantity controls; entries may wrap when needed. Do not spend permanent row space on item names or stack-size labels.
+- Auto-Sell and Auto-Delete remain the lower two-column section, each with its drop target and scrollable item list.
+- Preserve pfUI styling, existing drop animation behaviour and the small editable Auto-Buy maximum/maintain quantity box.
 
 ### Validation gates
 - Real Lua 5.0.2 compile/static check before runtime handoff.
@@ -224,8 +229,9 @@ Use the exact current `0.1.29-dev` build from `dev` after this handoff commit an
 8. With both selling and Auto-Buy configured, open a merchant and confirm selling completes before restocking and no Auto-Buy-owned item is sold.
 
 ## Planned / Next Work
-- Stop code changes at the `0.1.29-dev` runtime-validation gate.
-- Use user runtime results to correct only demonstrated issues in the new delta.
+- Implement the approved streamlined options/config semantics as `0.1.30-dev` without redesigning the existing merchant/bag-count/batch engine.
+- Run the real Lua 5.0.2 compiler/static check on the resulting runtime.
+- Return to a runtime-validation gate and use user results to correct only demonstrated issues.
 - Do not begin promotion/release work until the requested feature behavior and existing vendor/delete regression sanity are user-accepted.
 
 ## Deferred / Out of Scope
@@ -245,4 +251,4 @@ Use the exact current `0.1.29-dev` build from `dev` after this handoff commit an
 - External/runtime prerequisites remain World of Warcraft 1.12.1 and pfUI; no optional DLL/client extension is required.
 
 ## Exact Next Step
-User runtime-test the exact `0.1.29-dev` handoff build using the "Next Runtime Test" sequence above. First priority is options/load sanity, then burn-duration timing, then Auto-Buy single-unit and batched-reagent behavior. Do not promote or broaden scope before those results.
+Implement the user-approved streamlined options design and list opt-in semantics as the next `0.1.30-dev` build, preserving the existing Auto-Buy merchant/bag-count/batch engine. Then run the real Lua 5.0.2 compiler check and stop at the revised runtime-validation gate.
