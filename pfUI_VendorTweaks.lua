@@ -18,17 +18,30 @@ local function InitDB()
 
   DB = pfUI_VendorTweaks
 
-  if DB.interval == nil then DB.interval = "0.35" end
-  if DB.takeoverGreys == nil then DB.takeoverGreys = "0" end
-  -- v0.1.20: takeoverGreys is also the Auto-Sell ON switch; retire the old split flag.
-  DB.autoSellGreys = nil
-  if DB.autoVendor == nil then DB.autoVendor = "1" end
+  if DB.interval == nil then DB.interval = "0.10" end
+  local interval = tonumber(DB.interval) or 0.10
+  if interval < 0 then interval = 0 end
+  if interval > 0.20 then interval = 0.20 end
+  DB.interval = tostring(interval)
+
   if DB.showSellChat == nil then DB.showSellChat = "1" end
-  if DB.autoDelete == nil then DB.autoDelete = "1" end
-  if DB.showDeleteAnimation == nil then DB.showDeleteAnimation = "1" end
   if DB.showDeleteChat == nil then DB.showDeleteChat = "1" end
+  if DB.showBuyChat == nil then DB.showBuyChat = "1" end
+
   if DB.deleteAnimationDuration == nil then DB.deleteAnimationDuration = "1.00" end
-  if DB.autoBuy == nil then DB.autoBuy = "0" end
+  local animationDuration = tonumber(DB.deleteAnimationDuration) or 1.00
+  if animationDuration < 0.20 then animationDuration = 0.20 end
+  if animationDuration > 1.00 then animationDuration = 1.00 end
+  DB.deleteAnimationDuration = tostring(animationDuration)
+
+  -- v0.1.30: list membership is the opt-in. VendorTweaks always owns pfUI grey
+  -- selling while loaded, so the old feature/takeover switches are retired.
+  DB.takeoverGreys = nil
+  DB.autoSellGreys = nil
+  DB.autoVendor = nil
+  DB.autoDelete = nil
+  DB.autoBuy = nil
+  DB.showDeleteAnimation = nil
   if type(DB.vendorList) ~= "table" then DB.vendorList = {} end
   if type(DB.deleteList) ~= "table" then DB.deleteList = {} end
   if type(DB.buyList) ~= "table" then DB.buyList = {} end
@@ -68,15 +81,17 @@ local function InitDB()
 end
 
 local function GetInterval()
-  local n = DB and tonumber(DB.interval) or 0.35
-  if n < 0.05 then n = 0.05 end
-  if n > 0.50 then n = 0.50 end
+  local n = DB and tonumber(DB.interval) or 0.10
+  if n < 0 then n = 0 end
+  if n > 0.20 then n = 0.20 end
   return n
 end
 
 local function GetDeleteAnimationDuration()
   local n = DB and tonumber(DB.deleteAnimationDuration) or 1.00
-  if not n or n <= 0 then return 1.00 end
+  if not n then n = 1.00 end
+  if n < 0.20 then n = 0.20 end
+  if n > 1.00 then n = 1.00 end
   return n
 end
 
@@ -238,7 +253,7 @@ local function CountBagItem(itemID)
 end
 
 local function MaintainAutoBuyStock()
-  if not DB or not Enabled("autoBuy") or type(DB.buyList) ~= "table" then return end
+  if not DB or type(DB.buyList) ~= "table" then return end
 
   local processed = {}
   local merchantCount = GetMerchantNumItems() or 0
@@ -267,6 +282,9 @@ local function MaintainAutoBuyStock()
 
         if amount > 0 then
           BuyMerchantItem(index, amount)
+          if Enabled("showBuyChat") then
+            DEFAULT_CHAT_FRAME:AddMessage("|cff33ffcc[pfUI VendorTweaks]|r " .. string.format(T_("VT_BOUGHT"), link or string.format(T_("VT_ITEM_FALLBACK"), id), amount))
+          end
         end
       end
     end
@@ -289,7 +307,7 @@ end
 local sellQueue = {}
 local sellQueueIndex = 1
 local sellTimer = 0
-local sellInterval = 0.35
+local sellInterval = 0.10
 local worker = CreateFrame("Frame", "pfUI_VendorTweaks_Worker", UIParent)
 worker:Hide()
 
@@ -392,7 +410,8 @@ end
 
 -- -----------------------------------------------------------------------------
 -- pfUI grey-selling takeover
--- Reversible and independent from Auto-Vendor / Auto-Delete.
+-- VendorTweaks owns pfUI grey selling whenever this addon is loaded. The original
+-- pfUI setting/button handler are still restored cleanly on logout.
 -- -----------------------------------------------------------------------------
 local originalGlobalAutosell = nil
 local originalMerchantSellgrays = nil
@@ -452,8 +471,6 @@ local function RestorePfUIVendorButton()
 end
 
 local function HookPfUIVendorButton()
-  if not Enabled("takeoverGreys") then return end
-
   local button = getglobal("pfMerchantAutoVendorButton")
   if not button then return end
 
@@ -467,7 +484,7 @@ local function HookPfUIVendorButton()
   end
 
   -- If another addon/fork replaced the handler after our first hook, preserve
-  -- that newest handler as the one to restore when takeover is disabled.
+  -- that newest handler as the one to restore when VendorTweaks unloads/logs out.
   hookedVendorButton = button
   originalVendorButtonOnClick = current
 
@@ -477,14 +494,8 @@ end
 
 local function ApplyGreyTakeover()
   if not DB then return end
-
-  if Enabled("takeoverGreys") then
-    SuppressPfUIGreyAutosell()
-    HookPfUIVendorButton()
-  else
-    RestorePfUIVendorButton()
-    RestorePfUIGreyAutosell()
-  end
+  SuppressPfUIGreyAutosell()
+  HookPfUIVendorButton()
 end
 
 -- -----------------------------------------------------------------------------
@@ -512,7 +523,7 @@ local originalBuyMerchantItem = nil
 local originalPickupMerchantItem = nil
 
 local function MarkVendorPurchase(index)
-  if not DB or not Enabled("autoDelete") or not index then return end
+  if not DB or not index then return end
 
   local link = GetMerchantItemLink(index)
   local id = GetIDFromLink(link)
@@ -859,7 +870,7 @@ end
 local function UpdateAutoDeleteEventRegistration()
   if not eventFrame then return end
 
-  if Enabled("autoDelete") and HasDeleteListItems() then
+  if HasDeleteListItems() then
     eventFrame:RegisterEvent("CHAT_MSG_LOOT")
   else
     eventFrame:UnregisterEvent("CHAT_MSG_LOOT")
@@ -868,7 +879,7 @@ local function UpdateAutoDeleteEventRegistration()
 end
 
 local function ExecuteSafeDeleteStep()
-  if not DB or not Enabled("autoDelete") then
+  if not DB or not HasDeleteListItems() then
     StopDeleteWorker(true)
     return
   end
@@ -905,9 +916,7 @@ local function ExecuteSafeDeleteStep()
         end
 
         DeleteCursorItem()
-        if Enabled("showDeleteAnimation") then
-          PlayBinAnimation(id, slotTexture)
-        end
+        PlayBinAnimation(id, slotTexture)
         if Enabled("showDeleteChat") then
           DEFAULT_CHAT_FRAME:AddMessage("|cffff3333[pfUI VendorTweaks]|r " .. string.format(T_("VT_DELETED"), link))
         end
@@ -935,7 +944,7 @@ end)
 local function BuildComponentsPanel(parent)
   if parent.pfVTBuilt then return end
   parent.pfVTBuilt = true
-  parent:SetHeight(700)
+  parent:SetHeight(520)
 
   local title = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -8)
@@ -1025,24 +1034,19 @@ local function BuildComponentsPanel(parent)
     return cb
   end
 
-  -- Enabling this is both the takeover switch and the Auto-Sell ON switch.
-  -- When disabled, pfUI's own Auto-Sell setting and behaviour are restored intact.
-  local takeover = MakeCheckbox(title, -12,
-    T_("VT_THROTTLE_AUTOSELL"), "takeoverGreys", function()
-      CancelSellQueue()
-      ApplyGreyTakeover()
-    end)
+  local sellDelayLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  sellDelayLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -42)
+  sellDelayLabel:SetText(T_("VT_SELL_DELAY"))
 
   local slider = CreateFrame("Slider", "pfUI_VendorTweaks_ComponentSpeedSlider", parent, "OptionsSliderTemplate")
-  -- Align the slider to the right edge of the two list columns.
-  slider:SetPoint("RIGHT", takeover, "LEFT", 415, 0)
-  slider:SetWidth(150)
+  slider:SetPoint("TOPLEFT", parent, "TOPLEFT", 88, -39)
+  slider:SetWidth(112)
   slider:SetHeight(16)
-  slider:SetMinMaxValues(0.05, 0.50)
-  slider:SetValueStep(0.05)
+  slider:SetMinMaxValues(0.00, 0.20)
+  slider:SetValueStep(0.01)
   if pfUI.api and pfUI.api.SkinSlider then pfUI.api.SkinSlider(slider) end
-  getglobal(slider:GetName() .. "Low"):SetText("0.05s")
-  getglobal(slider:GetName() .. "High"):SetText("0.50s")
+  getglobal(slider:GetName() .. "Low"):SetText("0.00s")
+  getglobal(slider:GetName() .. "High"):SetText("0.20s")
   local sliderText = getglobal(slider:GetName() .. "Text")
   slider:SetScript("OnValueChanged", function()
     if not DB then return end
@@ -1052,80 +1056,42 @@ local function BuildComponentsPanel(parent)
     if sliderText then sliderText:SetText(string.format("%.2fs", val)) end
   end)
 
-  local burnDuration = CreateFrame("EditBox", nil, parent)
-  burnDuration:SetWidth(55)
-  burnDuration:SetHeight(20)
-  burnDuration:SetAutoFocus(false)
-  burnDuration:SetPoint("TOP", slider, "BOTTOM", 0, -12)
-  if pfUI.api and pfUI.api.SkinEditBox then pfUI.api.SkinEditBox(burnDuration) end
+  local animationDurationLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  animationDurationLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 220, -42)
+  animationDurationLabel:SetText(T_("VT_ANIMATION_DURATION"))
 
-  local burnDurationLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  burnDurationLabel:SetPoint("RIGHT", burnDuration, "LEFT", -7, 0)
-  burnDurationLabel:SetText(T_("VT_BURN_DURATION"))
-
-  local function RestoreBurnDurationText()
-    burnDuration:SetText(string.format("%.2f", GetDeleteAnimationDuration()))
-  end
-
-  local function CommitBurnDuration()
+  local animationDuration = CreateFrame("Slider", "pfUI_VendorTweaks_AnimationDurationSlider", parent, "OptionsSliderTemplate")
+  animationDuration:SetPoint("TOPLEFT", parent, "TOPLEFT", 332, -39)
+  animationDuration:SetWidth(88)
+  animationDuration:SetHeight(16)
+  animationDuration:SetMinMaxValues(0.20, 1.00)
+  animationDuration:SetValueStep(0.05)
+  if pfUI.api and pfUI.api.SkinSlider then pfUI.api.SkinSlider(animationDuration) end
+  getglobal(animationDuration:GetName() .. "Low"):SetText("0.20s")
+  getglobal(animationDuration:GetName() .. "High"):SetText("1.00s")
+  local animationDurationText = getglobal(animationDuration:GetName() .. "Text")
+  animationDuration:SetScript("OnValueChanged", function()
     if not DB then return end
-    local value = tonumber(burnDuration:GetText())
-    if value and value > 0 then
-      DB.deleteAnimationDuration = tostring(value)
-    else
-      RestoreBurnDurationText()
-    end
-  end
-
-  burnDuration:SetScript("OnEnterPressed", function()
-    CommitBurnDuration()
-    this:ClearFocus()
-  end)
-  burnDuration:SetScript("OnEscapePressed", function()
-    RestoreBurnDurationText()
-    this:ClearFocus()
-  end)
-  burnDuration:SetScript("OnEditFocusLost", function()
-    CommitBurnDuration()
+    local val = floor(this:GetValue() * 100 + 0.5) / 100
+    DB.deleteAnimationDuration = tostring(val)
+    if animationDurationText then animationDurationText:SetText(string.format("%.2fs", val)) end
   end)
 
-  -- The list toggles double as the two side-by-side section subheaders.
-  local autoVendor = MakeCheckbox(takeover, -52,
-    T_("VT_AUTO_VENDOR"), "autoVendor")
+  local chatLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  chatLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -82)
+  chatLabel:SetText(T_("VT_CHAT_MESSAGES"))
 
-  local showSellAnimation = MakeDisabledCheckbox(autoVendor, -2,
-    T_("VT_SHOW_SELL_ANIMATION"))
+  local showSellChat = MakeCheckbox(chatLabel, -2, T_("VT_CHAT_SELL"), "showSellChat")
+  showSellChat:ClearAllPoints()
+  showSellChat:SetPoint("LEFT", chatLabel, "RIGHT", 12, 0)
 
-  local showSellChat = MakeCheckbox(showSellAnimation, -2,
-    T_("VT_SHOW_SELL_CHAT"), "showSellChat")
+  local showDeleteChat = MakeCheckbox(chatLabel, -2, T_("VT_CHAT_DELETE"), "showDeleteChat")
+  showDeleteChat:ClearAllPoints()
+  showDeleteChat:SetPoint("LEFT", showSellChat.label, "RIGHT", 20, 0)
 
-  local autoDelete = CreateFrame("CheckButton", nil, parent)
-  autoDelete:SetWidth(20)
-  autoDelete:SetHeight(20)
-  autoDelete:SetPoint("TOPLEFT", autoVendor, "TOPLEFT", 220, 0)
-  if pfUI.api and pfUI.api.SkinCheckbox then pfUI.api.SkinCheckbox(autoDelete) end
-  AttachCheckboxMark(autoDelete)
-
-  local deleteLabel = autoDelete:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  deleteLabel:SetPoint("LEFT", autoDelete, "RIGHT", 5, 0)
-  deleteLabel:SetText(T_("VT_AUTO_DELETE"))
-
-  autoDelete:SetScript("OnClick", function()
-    if not DB then return end
-    DB.autoDelete = this:GetChecked() and "1" or "0"
-    UpdateCheckboxMark(this)
-    UpdateAutoDeleteEventRegistration()
-  end)
-
-  -- Keep Auto-Delete feedback controls between the feature toggle and its
-  -- drop target so they sit outside the list scroll frame and remain clickable.
-  local showDeleteAnimation = MakeCheckbox(autoDelete, -2,
-    T_("VT_SHOW_DELETE_ANIMATION"), "showDeleteAnimation", function()
-      if not Enabled("showDeleteAnimation") then ResetBinVisual() end
-    end)
-
-  local showDeleteChat = MakeCheckbox(showDeleteAnimation, -2,
-    T_("VT_SHOW_DELETE_CHAT"), "showDeleteChat")
+  local showBuyChat = MakeCheckbox(chatLabel, -2, T_("VT_CHAT_BUY"), "showBuyChat")
+  showBuyChat:ClearAllPoints()
+  showBuyChat:SetPoint("LEFT", showDeleteChat.label, "RIGHT", 20, 0)
 
   local function SetDropHighlight(frame, shown)
     if not frame or not frame.goldBorder then return end
@@ -1141,7 +1107,6 @@ local function BuildComponentsPanel(parent)
     frame:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -7)
     if pfUI.api and pfUI.api.CreateBackdrop then pfUI.api.CreateBackdrop(frame, nil, true) end
 
-    -- Gold inset border while an item cursor is hovering over this drop well.
     frame.goldBorder = {}
     local function GoldEdge()
       local tex = frame:CreateTexture(nil, "OVERLAY")
@@ -1190,9 +1155,6 @@ local function BuildComponentsPanel(parent)
     return frame
   end
 
-  local vendorDrop = MakeDropSlot(showSellChat, T_("VT_DROP_VENDOR"))
-  local deleteDrop = MakeDropSlot(showDeleteChat, T_("VT_DROP_DELETE"))
-
   local LIST_WIDTH = 195
   local LIST_HEIGHT = 190
   local ROW_HEIGHT = 19
@@ -1224,14 +1186,27 @@ local function BuildComponentsPanel(parent)
     return scroll, child
   end
 
+  local autoBuyHeader = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  autoBuyHeader:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -122)
+  autoBuyHeader:SetText(T_("VT_AUTO_BUY_HEADER"))
+
+  local buyDrop = MakeDropSlot(autoBuyHeader, T_("VT_DROP_BUY"))
+  local buyScroll, buyChild = MakeListScroll(buyDrop, 195, 74)
+  buyScroll:ClearAllPoints()
+  buyScroll:SetPoint("TOPLEFT", buyDrop, "TOPLEFT", 220, 0)
+
+  local autoSellHeader = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  autoSellHeader:SetPoint("TOPLEFT", buyDrop, "BOTTOMLEFT", 0, -48)
+  autoSellHeader:SetText(T_("VT_AUTO_SELL_HEADER"))
+
+  local autoDeleteHeader = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  autoDeleteHeader:SetPoint("TOPLEFT", autoSellHeader, "TOPLEFT", 220, 0)
+  autoDeleteHeader:SetText(T_("VT_AUTO_DELETE_HEADER"))
+
+  local vendorDrop = MakeDropSlot(autoSellHeader, T_("VT_DROP_SELL"))
+  local deleteDrop = MakeDropSlot(autoDeleteHeader, T_("VT_DROP_DELETE"))
   local vendorScroll, vendorChild = MakeListScroll(vendorDrop)
   local deleteScroll, deleteChild = MakeListScroll(deleteDrop)
-
-  local autoBuy = MakeCheckbox(vendorScroll, -24,
-    T_("VT_AUTO_BUY"), "autoBuy")
-
-  local buyDrop = MakeDropSlot(autoBuy, T_("VT_DROP_BUY"))
-  local buyScroll, buyChild = MakeListScroll(buyDrop, 415, 115)
 
   -- Vanilla 1.12 has no AnimationGroup API. Keep the entire flourish on
   -- the already-working drop button itself: this avoids extra frames, strata,
@@ -1355,44 +1330,28 @@ local function BuildComponentsPanel(parent)
 
   local function MakeBuyRow(pool, rowParent)
     local row = CreateFrame("Button", nil, rowParent)
-    row:SetWidth(411)
-    row:SetHeight(18)
+    row:SetWidth(92)
+    row:SetHeight(34)
 
     row.icon = row:CreateTexture(nil, "ARTWORK")
-    row.icon:SetWidth(14)
-    row.icon:SetHeight(14)
+    row.icon:SetWidth(30)
+    row.icon:SetHeight(30)
     row.icon:SetPoint("LEFT", row, "LEFT", 2, 0)
 
+    row.qty = CreateFrame("EditBox", nil, row)
+    row.qty:SetWidth(34)
+    row.qty:SetHeight(18)
+    row.qty:SetAutoFocus(false)
+    row.qty:SetPoint("LEFT", row.icon, "RIGHT", 5, 0)
+    if pfUI.api and pfUI.api.SkinEditBox then pfUI.api.SkinEditBox(row.qty) end
+
     row.del = CreateFrame("Button", nil, row)
-    row.del:SetWidth(16)
+    row.del:SetWidth(12)
     row.del:SetHeight(16)
-    row.del:SetPoint("RIGHT", row, "RIGHT", -1, 0)
+    row.del:SetPoint("LEFT", row.qty, "RIGHT", 3, 0)
     local x = row.del:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     x:SetPoint("CENTER", row.del, "CENTER", 0, 0)
     x:SetText("|cffff5555x|r")
-
-    row.qty = CreateFrame("EditBox", nil, row)
-    row.qty:SetWidth(42)
-    row.qty:SetHeight(16)
-    row.qty:SetAutoFocus(false)
-    row.qty:SetPoint("RIGHT", row.del, "LEFT", -5, 0)
-    if pfUI.api and pfUI.api.SkinEditBox then pfUI.api.SkinEditBox(row.qty) end
-
-    row.stack = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.stack:SetWidth(62)
-    row.stack:SetJustifyH("RIGHT")
-    row.stack:SetPoint("RIGHT", row.qty, "LEFT", -6, 0)
-
-    row.keep = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.keep:SetWidth(34)
-    row.keep:SetJustifyH("RIGHT")
-    row.keep:SetPoint("RIGHT", row.stack, "LEFT", -5, 0)
-    row.keep:SetText(T_("VT_BUY_KEEP"))
-
-    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.text:SetPoint("LEFT", row.icon, "RIGHT", 4, 0)
-    row.text:SetPoint("RIGHT", row.keep, "LEFT", -5, 0)
-    row.text:SetJustifyH("LEFT")
 
     table.insert(pool, row)
     return row
@@ -1405,11 +1364,9 @@ local function BuildComponentsPanel(parent)
     return name or string.format(T_("VT_ID"), id), texture
   end
 
-  -- Keep Auto-Buy list refresh isolated from the already-large main panel
-  -- refresh closure. Lua 5.0 limits a function to 32 upvalues.
+  -- Keep Auto-Buy refresh isolated from the already-large main panel closure.
+  -- Lua 5.0 limits a function to 32 upvalues.
   local function RefreshBuy()
-    SetCheckboxChecked(autoBuy, Enabled("autoBuy"))
-
     for _, row in ipairs(buyPool) do row:Hide() end
 
     local rows = {}
@@ -1436,21 +1393,22 @@ local function BuildComponentsPanel(parent)
       i = i + 1
       local idKey = entry.id
       local row = buyPool[i] or MakeBuyRow(buyPool, buyChild)
-      local display, texture = entry.display, entry.texture
-      local item = DB.items and DB.items[idKey]
-      local stack = type(item) == "table" and tonumber(item.stack) or nil
-      if not stack then
-        local _, _, _, _, _, _, _, resolvedStack = GetItemInfo(idKey)
-        stack = tonumber(resolvedStack)
-        if stack then CacheItemInfo(idKey, nil, nil, stack) end
-      end
 
+      local col = math.mod(i - 1, 2)
+      local line = math.floor((i - 1) / 2)
       row:ClearAllPoints()
-      row:SetPoint("TOPLEFT", buyChild, "TOPLEFT", 2, -2 - ((i - 1) * ROW_HEIGHT))
-      row.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
-      row.text:SetText(display)
-      row.stack:SetText(string.format(T_("VT_BUY_STACK"), stack or 1))
+      row:SetPoint("TOPLEFT", buyChild, "TOPLEFT", 2 + (col * 96), -2 - (line * 38))
+      row.icon:SetTexture(entry.texture or "Interface\\Icons\\INV_Misc_QuestionMark")
       row.qty:SetText(tostring(tonumber(DB.buyList[idKey]) or 0))
+
+      row:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+        GameTooltip:SetText(entry.display or string.format(T_("VT_ID"), idKey), 1, 1, 1)
+        GameTooltip:Show()
+      end)
+      row:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+      end)
 
       local function RestoreQuantity()
         row.qty:SetText(tostring(tonumber(DB.buyList[idKey]) or 0))
@@ -1484,24 +1442,25 @@ local function BuildComponentsPanel(parent)
       row:Show()
     end
 
-    buyChild:SetHeight(math.max(115, 4 + (i * ROW_HEIGHT)))
+    local buyLines = math.ceil(i / 2)
+    buyChild:SetHeight(math.max(74, 4 + (buyLines * 38)))
     buyScroll:SetVerticalScroll(math.min(buyScroll:GetVerticalScroll(), math.max(0, buyChild:GetHeight() - buyScroll:GetHeight())))
   end
 
   local function Refresh()
     if not DB then return end
 
-    SetCheckboxChecked(takeover, Enabled("takeoverGreys"))
-    SetCheckboxChecked(autoVendor, Enabled("autoVendor"))
     SetCheckboxChecked(showSellChat, Enabled("showSellChat"))
-    SetCheckboxChecked(autoDelete, Enabled("autoDelete"))
-    SetCheckboxChecked(showDeleteAnimation, Enabled("showDeleteAnimation"))
     SetCheckboxChecked(showDeleteChat, Enabled("showDeleteChat"))
+    SetCheckboxChecked(showBuyChat, Enabled("showBuyChat"))
 
     local interval = GetInterval()
     slider:SetValue(interval)
     if sliderText then sliderText:SetText(string.format("%.2fs", interval)) end
-    RestoreBurnDurationText()
+
+    local duration = GetDeleteAnimationDuration()
+    animationDuration:SetValue(duration)
+    if animationDurationText then animationDurationText:SetText(string.format("%.2fs", duration)) end
 
     for _, row in ipairs(vendorPool) do row:Hide() end
     for _, row in ipairs(deletePool) do row:Hide() end
@@ -1714,20 +1673,11 @@ eventFrame:SetScript("OnEvent", function()
     if not DB then return end
 
     -- pfUI may create its merchant button lazily; retry the narrow hook here.
-    if Enabled("takeoverGreys") then
-      SuppressPfUIGreyAutosell()
-      HookPfUIVendorButton()
-    end
+    SuppressPfUIGreyAutosell()
+    HookPfUIVendorButton()
 
-    local includeGreys = Enabled("takeoverGreys")
-    local includeCustom = Enabled("autoVendor")
-    autoBuyPending = Enabled("autoBuy")
-
-    if includeGreys or includeCustom then
-      StartSellQueue(includeGreys, includeCustom)
-    else
-      RunPendingAutoBuy()
-    end
+    autoBuyPending = type(DB.buyList) == "table" and next(DB.buyList) ~= nil
+    StartSellQueue(true, true)
 
   elseif event == "MERCHANT_CLOSED" then
     CancelSellQueue()
@@ -1735,8 +1685,7 @@ eventFrame:SetScript("OnEvent", function()
 
   elseif event == "CHAT_MSG_LOOT" then
     -- Reject unrelated loot by item ID before doing localized self-loot pattern
-    -- matching. This event is registered only while Auto-Delete is enabled and
-    -- the delete list is non-empty.
+    -- matching. This event is registered only while the delete list is non-empty.
     if DB and arg1 then
       local id = GetIDFromLink(arg1)
       if id and DB.deleteList[id] and IsSelfLootMessage(arg1) then
@@ -1748,7 +1697,7 @@ eventFrame:SetScript("OnEvent", function()
     end
 
   elseif event == "BAG_UPDATE" then
-    if DB and Enabled("autoDelete") then
+    if DB and HasDeleteListItems() then
       for _ in pairs(pendingDeleteIDs) do
         -- Debounce bag activity: spam-looting may fire several BAG_UPDATEs.
         -- Wait until bags have been quiet for 0.20s, then scan/delete once.
