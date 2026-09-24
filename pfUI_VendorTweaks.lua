@@ -27,8 +27,11 @@ local function InitDB()
   if DB.autoDelete == nil then DB.autoDelete = "1" end
   if DB.showDeleteAnimation == nil then DB.showDeleteAnimation = "1" end
   if DB.showDeleteChat == nil then DB.showDeleteChat = "1" end
+  if DB.deleteAnimationDuration == nil then DB.deleteAnimationDuration = "1.00" end
+  if DB.autoBuy == nil then DB.autoBuy = "0" end
   if type(DB.vendorList) ~= "table" then DB.vendorList = {} end
   if type(DB.deleteList) ~= "table" then DB.deleteList = {} end
+  if type(DB.buyList) ~= "table" then DB.buyList = {} end
   if type(DB.items) ~= "table" then DB.items = {} end
 
   -- v0.1.21: list membership is ID-only. Migrate the old saved item-name values
@@ -52,12 +55,28 @@ local function InitDB()
 
   DB.vendorList = MigrateList(DB.vendorList)
   DB.deleteList = MigrateList(DB.deleteList)
+
+  local normalizedBuy = {}
+  for id, value in pairs(DB.buyList) do
+    local itemID = tonumber(id)
+    local desired = tonumber(value)
+    if itemID and desired and desired >= 0 then
+      normalizedBuy[itemID] = math.floor(desired)
+    end
+  end
+  DB.buyList = normalizedBuy
 end
 
 local function GetInterval()
   local n = DB and tonumber(DB.interval) or 0.35
   if n < 0.05 then n = 0.05 end
   if n > 0.50 then n = 0.50 end
+  return n
+end
+
+local function GetDeleteAnimationDuration()
+  local n = DB and tonumber(DB.deleteAnimationDuration) or 1.00
+  if not n or n <= 0 then return 1.00 end
   return n
 end
 
@@ -81,7 +100,7 @@ local function T_(key)
   return key
 end
 
-local function CacheItemInfo(id, name, texture)
+local function CacheItemInfo(id, name, texture, stack)
   if not DB or not id then return end
   if type(DB.items) ~= "table" then DB.items = {} end
 
@@ -89,6 +108,7 @@ local function CacheItemInfo(id, name, texture)
   if type(item) ~= "table" then item = {} end
   if name then item.name = name end
   if texture then item.icon = texture end
+  if stack and tonumber(stack) then item.stack = tonumber(stack) end
   DB.items[id] = item
 end
 
@@ -104,9 +124,9 @@ local function TryResolveItemIcon(id)
     return true
   end
 
-  local name, _, _, _, _, _, _, _, _, texture = GetItemInfo(id)
-  if name or texture then
-    CacheItemInfo(id, name, texture)
+  local name, _, _, _, _, _, _, stack, _, texture = GetItemInfo(id)
+  if name or texture or stack then
+    CacheItemInfo(id, name, texture, stack)
   end
 
   item = DB.items and DB.items[id]
@@ -133,6 +153,7 @@ local function ResolveListedItemIcons()
 
   CheckList(DB.vendorList)
   CheckList(DB.deleteList)
+  CheckList(DB.buyList)
 
   if not next(missing) then return end
 
@@ -156,7 +177,7 @@ end
 
 local function PruneItemInfo(id)
   if not DB or not DB.items or not id then return end
-  if not DB.vendorList[id] and not DB.deleteList[id] then
+  if not DB.vendorList[id] and not DB.deleteList[id] and DB.buyList[id] == nil then
     DB.items[id] = nil
   end
 end
@@ -197,8 +218,73 @@ local function IsSelfLootMessage(msg)
 end
 
 -- -----------------------------------------------------------------------------
+-- Auto-Buy maintain-stock engine
+-- Counts only bags 0-4. Desired values are actual item counts, while merchant
+-- batch quantity is used to round a deficit up to a purchasable lot.
+-- -----------------------------------------------------------------------------
+local function CountBagItem(itemID)
+  local total = 0
+  for bag = 0, 4 do
+    local size = GetContainerNumSlots(bag) or 0
+    for slot = 1, size do
+      local link = GetContainerItemLink(bag, slot)
+      if link and GetIDFromLink(link) == itemID then
+        local _, count = GetContainerItemInfo(bag, slot)
+        total = total + (tonumber(count) or 0)
+      end
+    end
+  end
+  return total
+end
+
+local function MaintainAutoBuyStock()
+  if not DB or not Enabled("autoBuy") or type(DB.buyList) ~= "table" then return end
+
+  local processed = {}
+  local merchantCount = GetMerchantNumItems() or 0
+
+  for index = 1, merchantCount do
+    local link = GetMerchantItemLink(index)
+    local id = GetIDFromLink(link)
+    local desired = id and tonumber(DB.buyList[id]) or nil
+
+    if id and desired and desired >= 0 and not processed[id] then
+      processed[id] = true
+      desired = math.floor(desired)
+
+      local have = CountBagItem(id)
+      if have < desired then
+        local _, _, _, batchSize, numAvailable = GetMerchantItemInfo(index)
+        batchSize = tonumber(batchSize) or 1
+        if batchSize < 1 then batchSize = 1 end
+
+        local deficit = desired - have
+        local amount = math.ceil(deficit / batchSize) * batchSize
+
+        if numAvailable and numAvailable >= 0 and amount > numAvailable then
+          amount = numAvailable
+        end
+
+        if amount > 0 then
+          BuyMerchantItem(index, amount)
+        end
+      end
+    end
+  end
+end
+
+local autoBuyPending = false
+
+local function RunPendingAutoBuy()
+  if not autoBuyPending then return end
+  autoBuyPending = false
+  MaintainAutoBuyStock()
+end
+
+-- -----------------------------------------------------------------------------
 -- Shared throttled vendor engine
--- Both grey takeover and Auto-Vendor feed this one queue.
+-- Both grey takeover and Auto-Vendor feed this one queue. Auto-Buy runs only
+-- after this queue finishes so selling can free bag space first.
 -- -----------------------------------------------------------------------------
 local sellQueue = {}
 local sellQueueIndex = 1
@@ -216,12 +302,14 @@ worker:SetScript("OnUpdate", function()
     sellQueue = {}
     sellQueueIndex = 1
     worker:Hide()
+    RunPendingAutoBuy()
     return
   end
 
   if not MerchantFrame:IsVisible() then
     sellQueue = {}
     sellQueueIndex = 1
+    autoBuyPending = false
     worker:Hide()
     return
   end
@@ -243,6 +331,7 @@ worker:SetScript("OnUpdate", function()
     sellQueue = {}
     sellQueueIndex = 1
     worker:Hide()
+    RunPendingAutoBuy()
   end
 end)
 
@@ -271,6 +360,11 @@ local function StartSellQueue(includeGreys, includeCustom)
             shouldSell = true
           end
 
+          -- Explicit Auto-Buy ownership wins over both custom and grey selling.
+          if DB.buyList[id] ~= nil then
+            shouldSell = false
+          end
+
           if shouldSell then
             table.insert(sellQueue, { bag = bag, slot = slot, id = id })
           end
@@ -284,6 +378,7 @@ local function StartSellQueue(includeGreys, includeCustom)
     worker:Show()
   else
     worker:Hide()
+    RunPendingAutoBuy()
   end
 end
 
@@ -291,6 +386,7 @@ local function CancelSellQueue()
   sellQueue = {}
   sellQueueIndex = 1
   sellTimer = 0
+  autoBuyPending = false
   worker:Hide()
 end
 
@@ -522,7 +618,7 @@ binBurn:SetTexture("Interface\\AddOns\\pfUI_VendorTweaks\\artwork\\pfUI_VendorTw
 binBurn:Hide()
 
 local BIN_FRAME_COUNT = 8
-local BIN_DURATION = 1.00
+local BIN_DURATION_DEFAULT = 1.00
 local binElapsed = 0
 local binRunning = false
 local binFrameIndex = 0
@@ -634,7 +730,7 @@ function binFrame:GetDebugFireFrameCount()
 end
 
 function binFrame:GetDebugDefaultDurationMs()
-  return math.floor((BIN_DURATION * 1000) + 0.5)
+  return math.floor((BIN_DURATION_DEFAULT * 1000) + 0.5)
 end
 
 function binFrame:SetDebugFireTimeline(frameTimesMs, endTimeMs)
@@ -680,7 +776,7 @@ binFrame:SetScript("OnUpdate", function()
   if not binRunning then return end
 
   binElapsed = binElapsed + arg1
-  local duration = binDebugEndTime or BIN_DURATION
+  local duration = binDebugEndTime or GetDeleteAnimationDuration()
   local progress = binElapsed / duration
   if progress >= 1 then
     ResetBinVisual()
@@ -839,7 +935,7 @@ end)
 local function BuildComponentsPanel(parent)
   if parent.pfVTBuilt then return end
   parent.pfVTBuilt = true
-  parent:SetHeight(620)
+  parent:SetHeight(700)
 
   local title = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -8)
@@ -956,8 +1052,45 @@ local function BuildComponentsPanel(parent)
     if sliderText then sliderText:SetText(string.format("%.2fs", val)) end
   end)
 
+  local burnDuration = CreateFrame("EditBox", nil, parent)
+  burnDuration:SetWidth(55)
+  burnDuration:SetHeight(20)
+  burnDuration:SetAutoFocus(false)
+  burnDuration:SetPoint("TOP", slider, "BOTTOM", 0, -12)
+  if pfUI.api and pfUI.api.SkinEditBox then pfUI.api.SkinEditBox(burnDuration) end
+
+  local burnDurationLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  burnDurationLabel:SetPoint("RIGHT", burnDuration, "LEFT", -7, 0)
+  burnDurationLabel:SetText(T_("VT_BURN_DURATION"))
+
+  local function RestoreBurnDurationText()
+    burnDuration:SetText(string.format("%.2f", GetDeleteAnimationDuration()))
+  end
+
+  local function CommitBurnDuration()
+    if not DB then return end
+    local value = tonumber(burnDuration:GetText())
+    if value and value > 0 then
+      DB.deleteAnimationDuration = tostring(value)
+    else
+      RestoreBurnDurationText()
+    end
+  end
+
+  burnDuration:SetScript("OnEnterPressed", function()
+    CommitBurnDuration()
+    this:ClearFocus()
+  end)
+  burnDuration:SetScript("OnEscapePressed", function()
+    RestoreBurnDurationText()
+    this:ClearFocus()
+  end)
+  burnDuration:SetScript("OnEditFocusLost", function()
+    CommitBurnDuration()
+  end)
+
   -- The list toggles double as the two side-by-side section subheaders.
-  local autoVendor = MakeCheckbox(takeover, -32,
+  local autoVendor = MakeCheckbox(takeover, -52,
     T_("VT_AUTO_VENDOR"), "autoVendor")
 
   local showSellAnimation = MakeDisabledCheckbox(autoVendor, -2,
@@ -1064,16 +1197,19 @@ local function BuildComponentsPanel(parent)
   local LIST_HEIGHT = 190
   local ROW_HEIGHT = 19
 
-  local function MakeListScroll(drop)
+  local function MakeListScroll(drop, width, height)
+    width = width or LIST_WIDTH
+    height = height or LIST_HEIGHT
+
     local scroll = CreateFrame("ScrollFrame", nil, parent)
-    scroll:SetWidth(LIST_WIDTH)
-    scroll:SetHeight(LIST_HEIGHT)
+    scroll:SetWidth(width)
+    scroll:SetHeight(height)
     scroll:SetPoint("TOPLEFT", drop, "BOTTOMLEFT", 0, -7)
     if pfUI.api and pfUI.api.CreateBackdrop then pfUI.api.CreateBackdrop(scroll, nil, true) end
 
     local child = CreateFrame("Frame", nil, scroll)
-    child:SetWidth(LIST_WIDTH - 4)
-    child:SetHeight(LIST_HEIGHT)
+    child:SetWidth(width - 4)
+    child:SetHeight(height)
     scroll:SetScrollChild(child)
 
     scroll:EnableMouseWheel(true)
@@ -1090,6 +1226,12 @@ local function BuildComponentsPanel(parent)
 
   local vendorScroll, vendorChild = MakeListScroll(vendorDrop)
   local deleteScroll, deleteChild = MakeListScroll(deleteDrop)
+
+  local autoBuy = MakeCheckbox(vendorScroll, -24,
+    T_("VT_AUTO_BUY"), "autoBuy")
+
+  local buyDrop = MakeDropSlot(autoBuy, T_("VT_DROP_BUY"))
+  local buyScroll, buyChild = MakeListScroll(buyDrop, 415, 115)
 
   -- Vanilla 1.12 has no AnimationGroup API. Keep the entire flourish on
   -- the already-working drop button itself: this avoids extra frames, strata,
@@ -1177,9 +1319,11 @@ local function BuildComponentsPanel(parent)
 
   local vendorDropAnim = MakeDropAnimator(vendorDrop)
   local deleteDropAnim = MakeDropAnimator(deleteDrop)
+  local buyDropAnim = MakeDropAnimator(buyDrop)
 
   local vendorPool = {}
   local deletePool = {}
+  local buyPool = {}
 
   local function MakeRow(pool, rowParent, greyName)
     local row = CreateFrame("Button", nil, rowParent)
@@ -1209,6 +1353,51 @@ local function BuildComponentsPanel(parent)
     return row
   end
 
+  local function MakeBuyRow(pool, rowParent)
+    local row = CreateFrame("Button", nil, rowParent)
+    row:SetWidth(411)
+    row:SetHeight(18)
+
+    row.icon = row:CreateTexture(nil, "ARTWORK")
+    row.icon:SetWidth(14)
+    row.icon:SetHeight(14)
+    row.icon:SetPoint("LEFT", row, "LEFT", 2, 0)
+
+    row.del = CreateFrame("Button", nil, row)
+    row.del:SetWidth(16)
+    row.del:SetHeight(16)
+    row.del:SetPoint("RIGHT", row, "RIGHT", -1, 0)
+    local x = row.del:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    x:SetPoint("CENTER", row.del, "CENTER", 0, 0)
+    x:SetText("|cffff5555x|r")
+
+    row.qty = CreateFrame("EditBox", nil, row)
+    row.qty:SetWidth(42)
+    row.qty:SetHeight(16)
+    row.qty:SetAutoFocus(false)
+    row.qty:SetPoint("RIGHT", row.del, "LEFT", -5, 0)
+    if pfUI.api and pfUI.api.SkinEditBox then pfUI.api.SkinEditBox(row.qty) end
+
+    row.stack = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.stack:SetWidth(62)
+    row.stack:SetJustifyH("RIGHT")
+    row.stack:SetPoint("RIGHT", row.qty, "LEFT", -6, 0)
+
+    row.keep = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.keep:SetWidth(34)
+    row.keep:SetJustifyH("RIGHT")
+    row.keep:SetPoint("RIGHT", row.stack, "LEFT", -5, 0)
+    row.keep:SetText(T_("VT_BUY_KEEP"))
+
+    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.text:SetPoint("LEFT", row.icon, "RIGHT", 4, 0)
+    row.text:SetPoint("RIGHT", row.keep, "LEFT", -5, 0)
+    row.text:SetJustifyH("LEFT")
+
+    table.insert(pool, row)
+    return row
+  end
+
   local function DisplayInfo(id)
     local item = DB.items and DB.items[id]
     local name = type(item) == "table" and item.name or nil
@@ -1225,13 +1414,16 @@ local function BuildComponentsPanel(parent)
     SetCheckboxChecked(autoDelete, Enabled("autoDelete"))
     SetCheckboxChecked(showDeleteAnimation, Enabled("showDeleteAnimation"))
     SetCheckboxChecked(showDeleteChat, Enabled("showDeleteChat"))
+    SetCheckboxChecked(autoBuy, Enabled("autoBuy"))
 
     local interval = GetInterval()
     slider:SetValue(interval)
     if sliderText then sliderText:SetText(string.format("%.2fs", interval)) end
+    RestoreBurnDurationText()
 
     for _, row in ipairs(vendorPool) do row:Hide() end
     for _, row in ipairs(deletePool) do row:Hide() end
+    for _, row in ipairs(buyPool) do row:Hide() end
 
     -- Resolve missing presentation metadata only while the configuration is
     -- being refreshed. A single bag scan is allowed here, but unresolved
@@ -1306,6 +1498,62 @@ local function BuildComponentsPanel(parent)
     end
     deleteChild:SetHeight(math.max(LIST_HEIGHT, 4 + (i * ROW_HEIGHT)))
     deleteScroll:SetVerticalScroll(math.min(deleteScroll:GetVerticalScroll(), math.max(0, deleteChild:GetHeight() - deleteScroll:GetHeight())))
+
+    local buyRows = BuildSortedRows(DB.buyList)
+    i = 0
+    for _, entry in ipairs(buyRows) do
+      i = i + 1
+      local idKey = entry.id
+      local row = buyPool[i] or MakeBuyRow(buyPool, buyChild)
+      local display, texture = entry.display, entry.texture
+      local item = DB.items and DB.items[idKey]
+      local stack = type(item) == "table" and tonumber(item.stack) or nil
+      if not stack then
+        local _, _, _, _, _, _, _, resolvedStack = GetItemInfo(idKey)
+        stack = tonumber(resolvedStack)
+        if stack then CacheItemInfo(idKey, nil, nil, stack) end
+      end
+
+      row:ClearAllPoints()
+      row:SetPoint("TOPLEFT", buyChild, "TOPLEFT", 2, -2 - ((i - 1) * ROW_HEIGHT))
+      row.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
+      row.text:SetText(display)
+      row.stack:SetText(string.format(T_("VT_BUY_STACK"), stack or 1))
+      row.qty:SetText(tostring(tonumber(DB.buyList[idKey]) or 0))
+
+      local function RestoreQuantity()
+        row.qty:SetText(tostring(tonumber(DB.buyList[idKey]) or 0))
+      end
+
+      local function CommitQuantity()
+        local value = row.qty:GetText()
+        if value and string.find(value, "^%d+$") then
+          DB.buyList[idKey] = tonumber(value)
+        else
+          RestoreQuantity()
+        end
+      end
+
+      row.qty:SetScript("OnEnterPressed", function()
+        CommitQuantity()
+        this:ClearFocus()
+      end)
+      row.qty:SetScript("OnEscapePressed", function()
+        RestoreQuantity()
+        this:ClearFocus()
+      end)
+      row.qty:SetScript("OnEditFocusLost", function()
+        CommitQuantity()
+      end)
+      row.del:SetScript("OnClick", function()
+        DB.buyList[idKey] = nil
+        PruneItemInfo(idKey)
+        Refresh()
+      end)
+      row:Show()
+    end
+    buyChild:SetHeight(math.max(115, 4 + (i * ROW_HEIGHT)))
+    buyScroll:SetVerticalScroll(math.min(buyScroll:GetVerticalScroll(), math.max(0, buyChild:GetHeight() - buyScroll:GetHeight())))
   end
 
   local function HandleDrop(mode)
@@ -1318,20 +1566,28 @@ local function BuildComponentsPanel(parent)
     itemID = tonumber(itemID)
     if cursorType ~= "item" or not itemID then return end
 
-    local name, _, _, _, _, _, _, _, _, texture = GetItemInfo(itemLink or itemID)
-    if not name or not texture then
-      local fallbackName, _, _, _, _, _, _, _, _, fallbackTexture = GetItemInfo(itemID)
+    local name, _, _, _, _, _, _, stack, _, texture = GetItemInfo(itemLink or itemID)
+    if not name or not texture or not stack then
+      local fallbackName, _, _, _, _, _, _, fallbackStack, _, fallbackTexture = GetItemInfo(itemID)
       name = name or fallbackName
       texture = texture or fallbackTexture
+      stack = stack or fallbackStack
     end
     if mode == "vendor" then
       DB.vendorList[itemID] = true
       DB.deleteList[itemID] = nil
+      DB.buyList[itemID] = nil
       SetDropHighlight(vendorDrop, false)
-    else
+    elseif mode == "delete" then
       DB.deleteList[itemID] = true
       DB.vendorList[itemID] = nil
+      DB.buyList[itemID] = nil
       SetDropHighlight(deleteDrop, false)
+    else
+      DB.buyList[itemID] = DB.buyList[itemID] or math.max(1, tonumber(stack) or 1)
+      DB.vendorList[itemID] = nil
+      DB.deleteList[itemID] = nil
+      SetDropHighlight(buyDrop, false)
     end
     UpdateAutoDeleteEventRegistration()
 
@@ -1359,13 +1615,15 @@ local function BuildComponentsPanel(parent)
       end
     end
 
-    CacheItemInfo(itemID, name or string.format(T_("VT_ITEM_FALLBACK"), itemID), texture)
+    CacheItemInfo(itemID, name or string.format(T_("VT_ITEM_FALLBACK"), itemID), texture, stack)
     Refresh()
 
     if mode == "vendor" then
       vendorDropAnim:Play(texture)
-    else
+    elseif mode == "delete" then
       deleteDropAnim:Play(texture)
+    else
+      buyDropAnim:Play(texture)
     end
   end
 
@@ -1373,6 +1631,8 @@ local function BuildComponentsPanel(parent)
   vendorDrop:SetScript("OnReceiveDrag", function() HandleDrop("vendor") end)
   deleteDrop:SetScript("OnClick", function() HandleDrop("delete") end)
   deleteDrop:SetScript("OnReceiveDrag", function() HandleDrop("delete") end)
+  buyDrop:SetScript("OnClick", function() HandleDrop("buy") end)
+  buyDrop:SetScript("OnReceiveDrag", function() HandleDrop("buy") end)
 
   parent:SetScript("OnShow", function() Refresh() end)
   Refresh()
@@ -1434,9 +1694,12 @@ eventFrame:SetScript("OnEvent", function()
 
     local includeGreys = Enabled("takeoverGreys")
     local includeCustom = Enabled("autoVendor")
+    autoBuyPending = Enabled("autoBuy")
 
     if includeGreys or includeCustom then
       StartSellQueue(includeGreys, includeCustom)
+    else
+      RunPendingAutoBuy()
     end
 
   elseif event == "MERCHANT_CLOSED" then
