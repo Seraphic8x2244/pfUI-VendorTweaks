@@ -201,27 +201,33 @@ end
 -- Both grey takeover and Auto-Vendor feed this one queue.
 -- -----------------------------------------------------------------------------
 local sellQueue = {}
+local sellQueueIndex = 1
 local sellTimer = 0
+local sellInterval = 0.35
 local worker = CreateFrame("Frame", "pfUI_VendorTweaks_Worker", UIParent)
 worker:Hide()
 
 worker:SetScript("OnUpdate", function()
   sellTimer = sellTimer + arg1
-  if sellTimer < GetInterval() then return end
+  if sellTimer < sellInterval then return end
   sellTimer = 0
 
-  if table.getn(sellQueue) == 0 then
+  if sellQueueIndex > table.getn(sellQueue) then
+    sellQueue = {}
+    sellQueueIndex = 1
     worker:Hide()
     return
   end
 
   if not MerchantFrame:IsVisible() then
     sellQueue = {}
+    sellQueueIndex = 1
     worker:Hide()
     return
   end
 
-  local item = table.remove(sellQueue, 1)
+  local item = sellQueue[sellQueueIndex]
+  sellQueueIndex = sellQueueIndex + 1
   local currentLink = GetContainerItemLink(item.bag, item.slot)
   local currentID = GetIDFromLink(currentLink)
 
@@ -232,12 +238,20 @@ worker:SetScript("OnUpdate", function()
       DEFAULT_CHAT_FRAME:AddMessage("|cff33ff33[pfUI VendorTweaks]|r " .. string.format(T_("VT_SOLD"), currentLink))
     end
   end
+
+  if sellQueueIndex > table.getn(sellQueue) then
+    sellQueue = {}
+    sellQueueIndex = 1
+    worker:Hide()
+  end
 end)
 
 local function StartSellQueue(includeGreys, includeCustom)
   if not DB then return end
 
   sellQueue = {}
+  sellQueueIndex = 1
+  sellInterval = GetInterval()
 
   for bag = 0, 4 do
     local size = GetContainerNumSlots(bag) or 0
@@ -275,6 +289,8 @@ end
 
 local function CancelSellQueue()
   sellQueue = {}
+  sellQueueIndex = 1
+  sellTimer = 0
   worker:Hide()
 end
 
@@ -696,17 +712,11 @@ binFrame:SetScript("OnUpdate", function()
     end
   end
 
-  -- Existing burn test behaviour is preserved while Debug.lua tunes the
-  -- relative icon/fire placement. The revised animation will replace this.
+  -- PlayBinAnimation already establishes the unchanged pre-burn icon state.
+  -- Only switch anchors once when the wipe starts, then update the properties
+  -- that actually change over the remainder of the animation.
   local burnStart = 3 / BIN_FRAME_COUNT
-  if progress <= burnStart then
-    binIconWiping = false
-    binIcon:SetAlpha(1)
-    binIcon:SetVertexColor(1, 1, 1, 1)
-    binIcon:SetTexCoord(0, 1, 0, 1)
-    binIcon:SetHeight(32)
-    ApplyBinIconPosition()
-  else
+  if progress > burnStart then
     local burn = (progress - burnStart) / (1 - burnStart)
     if burn > 1 then burn = 1 end
 
@@ -715,12 +725,13 @@ binFrame:SetScript("OnUpdate", function()
     if char > 1 then char = 1 end
     local shade = 1 - char
 
-    binIconWiping = true
-    binIcon:SetAlpha(1)
+    if not binIconWiping then
+      binIconWiping = true
+      ApplyBinIconPosition()
+    end
     binIcon:SetVertexColor(shade, shade, shade, 1)
     binIcon:SetTexCoord(0, 1, burn, 1)
     binIcon:SetHeight(math.max(0.5, 32 * remain))
-    ApplyBinIconPosition()
   end
 end)
 
@@ -941,6 +952,7 @@ local function BuildComponentsPanel(parent)
     if not DB then return end
     local val = floor(this:GetValue() * 100 + 0.5) / 100
     DB.interval = tostring(val)
+    sellInterval = val
     if sliderText then sliderText:SetText(string.format("%.2fs", val)) end
   end)
 
@@ -1109,13 +1121,10 @@ local function BuildComponentsPanel(parent)
     icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
 
     local elapsed = 0
-    local running = false
     local startX, startY = 0, 0
     local targetX, targetY = -7, -55
 
-    drop:SetScript("OnUpdate", function()
-      if not running then return end
-
+    local function UpdateDropAnimation()
       elapsed = elapsed + arg1
       local flashTime = .18
       local slideTime = .42
@@ -1128,7 +1137,7 @@ local function BuildComponentsPanel(parent)
 
       local t = (elapsed - flashTime) / slideTime
       if t >= 1 then
-        running = false
+        drop:SetScript("OnUpdate", nil)
         visual:Hide()
         visual:SetAlpha(1)
         visual:SetScale(1)
@@ -1146,7 +1155,7 @@ local function BuildComponentsPanel(parent)
       visual:SetPoint("CENTER", drop, "CENTER", x, y)
       visual:SetScale(1 - (.65 * e))
       visual:SetAlpha(1 - (.35 * e))
-    end)
+    end
 
     local animator = {}
     function animator:Play(texture)
@@ -1154,13 +1163,13 @@ local function BuildComponentsPanel(parent)
       targetX, targetY = -7, -55
 
       elapsed = 0
-      running = true
       icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
       visual:SetAlpha(1)
       visual:SetScale(1)
       visual:ClearAllPoints()
       visual:SetPoint("CENTER", drop, "CENTER", 0, 0)
       visual:Show()
+      drop:SetScript("OnUpdate", UpdateDropAnimation)
     end
 
     return animator
