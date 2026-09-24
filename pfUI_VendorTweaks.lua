@@ -1405,6 +1405,89 @@ local function BuildComponentsPanel(parent)
     return name or string.format(T_("VT_ID"), id), texture
   end
 
+  -- Keep Auto-Buy list refresh isolated from the already-large main panel
+  -- refresh closure. Lua 5.0 limits a function to 32 upvalues.
+  local function RefreshBuy()
+    SetCheckboxChecked(autoBuy, Enabled("autoBuy"))
+
+    for _, row in ipairs(buyPool) do row:Hide() end
+
+    local rows = {}
+    for id in pairs(DB.buyList) do
+      local itemID = tonumber(id) or id
+      local display, texture = DisplayInfo(itemID)
+      table.insert(rows, {
+        id = itemID,
+        display = display,
+        texture = texture,
+        sortKey = string.lower(display or ""),
+      })
+    end
+
+    table.sort(rows, function(a, b)
+      if a.sortKey == b.sortKey then
+        return a.id < b.id
+      end
+      return a.sortKey < b.sortKey
+    end)
+
+    local i = 0
+    for _, entry in ipairs(rows) do
+      i = i + 1
+      local idKey = entry.id
+      local row = buyPool[i] or MakeBuyRow(buyPool, buyChild)
+      local display, texture = entry.display, entry.texture
+      local item = DB.items and DB.items[idKey]
+      local stack = type(item) == "table" and tonumber(item.stack) or nil
+      if not stack then
+        local _, _, _, _, _, _, _, resolvedStack = GetItemInfo(idKey)
+        stack = tonumber(resolvedStack)
+        if stack then CacheItemInfo(idKey, nil, nil, stack) end
+      end
+
+      row:ClearAllPoints()
+      row:SetPoint("TOPLEFT", buyChild, "TOPLEFT", 2, -2 - ((i - 1) * ROW_HEIGHT))
+      row.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
+      row.text:SetText(display)
+      row.stack:SetText(string.format(T_("VT_BUY_STACK"), stack or 1))
+      row.qty:SetText(tostring(tonumber(DB.buyList[idKey]) or 0))
+
+      local function RestoreQuantity()
+        row.qty:SetText(tostring(tonumber(DB.buyList[idKey]) or 0))
+      end
+
+      local function CommitQuantity()
+        local value = row.qty:GetText()
+        if value and string.find(value, "^%d+$") then
+          DB.buyList[idKey] = tonumber(value)
+        else
+          RestoreQuantity()
+        end
+      end
+
+      row.qty:SetScript("OnEnterPressed", function()
+        CommitQuantity()
+        this:ClearFocus()
+      end)
+      row.qty:SetScript("OnEscapePressed", function()
+        RestoreQuantity()
+        this:ClearFocus()
+      end)
+      row.qty:SetScript("OnEditFocusLost", function()
+        CommitQuantity()
+      end)
+      row.del:SetScript("OnClick", function()
+        DB.buyList[idKey] = nil
+        PruneItemInfo(idKey)
+        RefreshBuy()
+      end)
+      row:Show()
+    end
+
+    buyChild:SetHeight(math.max(115, 4 + (i * ROW_HEIGHT)))
+    buyScroll:SetVerticalScroll(math.min(buyScroll:GetVerticalScroll(), math.max(0, buyChild:GetHeight() - buyScroll:GetHeight())))
+  end
+
   local function Refresh()
     if not DB then return end
 
@@ -1414,7 +1497,6 @@ local function BuildComponentsPanel(parent)
     SetCheckboxChecked(autoDelete, Enabled("autoDelete"))
     SetCheckboxChecked(showDeleteAnimation, Enabled("showDeleteAnimation"))
     SetCheckboxChecked(showDeleteChat, Enabled("showDeleteChat"))
-    SetCheckboxChecked(autoBuy, Enabled("autoBuy"))
 
     local interval = GetInterval()
     slider:SetValue(interval)
@@ -1423,7 +1505,6 @@ local function BuildComponentsPanel(parent)
 
     for _, row in ipairs(vendorPool) do row:Hide() end
     for _, row in ipairs(deletePool) do row:Hide() end
-    for _, row in ipairs(buyPool) do row:Hide() end
 
     -- Resolve missing presentation metadata only while the configuration is
     -- being refreshed. A single bag scan is allowed here, but unresolved
@@ -1499,61 +1580,7 @@ local function BuildComponentsPanel(parent)
     deleteChild:SetHeight(math.max(LIST_HEIGHT, 4 + (i * ROW_HEIGHT)))
     deleteScroll:SetVerticalScroll(math.min(deleteScroll:GetVerticalScroll(), math.max(0, deleteChild:GetHeight() - deleteScroll:GetHeight())))
 
-    local buyRows = BuildSortedRows(DB.buyList)
-    i = 0
-    for _, entry in ipairs(buyRows) do
-      i = i + 1
-      local idKey = entry.id
-      local row = buyPool[i] or MakeBuyRow(buyPool, buyChild)
-      local display, texture = entry.display, entry.texture
-      local item = DB.items and DB.items[idKey]
-      local stack = type(item) == "table" and tonumber(item.stack) or nil
-      if not stack then
-        local _, _, _, _, _, _, _, resolvedStack = GetItemInfo(idKey)
-        stack = tonumber(resolvedStack)
-        if stack then CacheItemInfo(idKey, nil, nil, stack) end
-      end
-
-      row:ClearAllPoints()
-      row:SetPoint("TOPLEFT", buyChild, "TOPLEFT", 2, -2 - ((i - 1) * ROW_HEIGHT))
-      row.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
-      row.text:SetText(display)
-      row.stack:SetText(string.format(T_("VT_BUY_STACK"), stack or 1))
-      row.qty:SetText(tostring(tonumber(DB.buyList[idKey]) or 0))
-
-      local function RestoreQuantity()
-        row.qty:SetText(tostring(tonumber(DB.buyList[idKey]) or 0))
-      end
-
-      local function CommitQuantity()
-        local value = row.qty:GetText()
-        if value and string.find(value, "^%d+$") then
-          DB.buyList[idKey] = tonumber(value)
-        else
-          RestoreQuantity()
-        end
-      end
-
-      row.qty:SetScript("OnEnterPressed", function()
-        CommitQuantity()
-        this:ClearFocus()
-      end)
-      row.qty:SetScript("OnEscapePressed", function()
-        RestoreQuantity()
-        this:ClearFocus()
-      end)
-      row.qty:SetScript("OnEditFocusLost", function()
-        CommitQuantity()
-      end)
-      row.del:SetScript("OnClick", function()
-        DB.buyList[idKey] = nil
-        PruneItemInfo(idKey)
-        Refresh()
-      end)
-      row:Show()
-    end
-    buyChild:SetHeight(math.max(115, 4 + (i * ROW_HEIGHT)))
-    buyScroll:SetVerticalScroll(math.min(buyScroll:GetVerticalScroll(), math.max(0, buyChild:GetHeight() - buyScroll:GetHeight())))
+    RefreshBuy()
   end
 
   local function HandleDrop(mode)
