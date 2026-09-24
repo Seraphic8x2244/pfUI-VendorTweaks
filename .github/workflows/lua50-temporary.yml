@@ -1,0 +1,29 @@
+name: Temporary Lua 5.0.2 compatibility check
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  lua50:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout canonical VanillaTemplate checker
+        uses: actions/checkout@v4
+        with:
+          repository: Seraphic8x2244/VanillaTemplate
+          ref: 9093fac60f210dedd87d5e2d0f265a97494f999f
+          path: .vanilla-template
+
+      - name: Verify Lua 5.0.2 checker
+        run: bash .vanilla-template/tools/lua50/selftest.sh
+
+      - name: Compile VendorTweaks with Lua 5.0.2
+        run: bash .vanilla-template/tools/lua50/check_lua50.sh pfUI_VendorTweaks.lua Debug.lua locales

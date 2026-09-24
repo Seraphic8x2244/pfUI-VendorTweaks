@@ -7,8 +7,6 @@ if not pfUI then return end
 local ADDON_NAME = "pfUI_VendorTweaks"
 local ADDON_VERSION = GetAddOnMetadata(ADDON_NAME, "Version")
 local DB = nil
-local missingIconIDs = {}
-local iconRepairInitialized = false
 
 -- -----------------------------------------------------------------------------
 -- SavedVariables: bind only after the addon SavedVariables have been restored.
@@ -95,30 +93,14 @@ local function CacheItemInfo(id, name, texture)
 end
 
 -- -----------------------------------------------------------------------------
--- On-demand icon repair
--- Dormant when every listed item already has cached artwork.
+-- On-demand item icon resolution
+-- Runs only while VendorTweaks configuration is refreshed or updated.
 -- -----------------------------------------------------------------------------
-local iconRepairFrame = CreateFrame("Frame")
-local iconRepairListening = false
-
-local function UpdateIconRepairListener()
-  local shouldListen = next(missingIconIDs) ~= nil
-
-  if shouldListen and not iconRepairListening then
-    iconRepairFrame:RegisterEvent("BAG_UPDATE")
-    iconRepairListening = true
-  elseif not shouldListen and iconRepairListening then
-    iconRepairFrame:UnregisterEvent("BAG_UPDATE")
-    iconRepairListening = false
-  end
-end
-
 local function TryResolveItemIcon(id)
   if not DB or not id then return false end
 
   local item = DB.items and DB.items[id]
   if type(item) == "table" and item.icon then
-    missingIconIDs[id] = nil
     return true
   end
 
@@ -128,92 +110,54 @@ local function TryResolveItemIcon(id)
   end
 
   item = DB.items and DB.items[id]
-  if type(item) == "table" and item.icon then
-    missingIconIDs[id] = nil
-    return true
-  end
-
-  missingIconIDs[id] = true
-  return false
+  return type(item) == "table" and item.icon ~= nil
 end
 
-local function ScanBagForMissingIcons(bag)
-  if not DB or not next(missingIconIDs) then return end
-  if bag == nil or bag < 0 or bag > 4 then return end
-
-  local size = GetContainerNumSlots(bag) or 0
-  for slot = 1, size do
-    local link = GetContainerItemLink(bag, slot)
-    local id = GetIDFromLink(link)
-    if id and missingIconIDs[id] then
-      local texture = GetContainerItemInfo(bag, slot)
-      if texture then
-        local name = GetItemInfo(link or id)
-        CacheItemInfo(id, name, texture)
-        missingIconIDs[id] = nil
-      end
-    end
-  end
-end
-
-local function ScanAllBagsForMissingIcons()
-  if not next(missingIconIDs) then return end
-  for bag = 0, 4 do
-    ScanBagForMissingIcons(bag)
-    if not next(missingIconIDs) then break end
-  end
-end
-
-local function RebuildMissingIconIDs()
-  missingIconIDs = {}
+local function ResolveListedItemIcons()
   if not DB then return end
 
+  local missing = {}
   local checked = {}
+
   local function CheckList(list)
     for id in pairs(list) do
       local itemID = tonumber(id)
       if itemID and not checked[itemID] then
         checked[itemID] = true
-        TryResolveItemIcon(itemID)
+        if not TryResolveItemIcon(itemID) then
+          missing[itemID] = true
+        end
       end
     end
   end
 
   CheckList(DB.vendorList)
   CheckList(DB.deleteList)
-end
 
-local function InitializeIconRepair()
-  -- PLAYER_ENTERING_WORLD also fires after zoning; the initial full scan is
-  -- intentionally once per session. After this, BAG_UPDATE scans only the bag
-  -- that actually changed and only while unresolved icons still exist.
-  if iconRepairInitialized then return end
-  iconRepairInitialized = true
+  if not next(missing) then return end
 
-  RebuildMissingIconIDs()
-  if next(missingIconIDs) then
-    ScanAllBagsForMissingIcons()
+  for bag = 0, 4 do
+    local size = GetContainerNumSlots(bag) or 0
+    for slot = 1, size do
+      local link = GetContainerItemLink(bag, slot)
+      local id = GetIDFromLink(link)
+      if id and missing[id] then
+        local texture = GetContainerItemInfo(bag, slot)
+        if texture then
+          local name = GetItemInfo(link or id)
+          CacheItemInfo(id, name, texture)
+          missing[id] = nil
+        end
+      end
+    end
+    if not next(missing) then break end
   end
-  UpdateIconRepairListener()
 end
-
-iconRepairFrame:SetScript("OnEvent", function()
-  if event ~= "BAG_UPDATE" or not DB or not next(missingIconIDs) then return end
-
-  local bag = tonumber(arg1)
-  if bag and bag >= 0 and bag <= 4 then
-    ScanBagForMissingIcons(bag)
-  end
-
-  UpdateIconRepairListener()
-end)
 
 local function PruneItemInfo(id)
   if not DB or not DB.items or not id then return end
   if not DB.vendorList[id] and not DB.deleteList[id] then
     DB.items[id] = nil
-    missingIconIDs[id] = nil
-    UpdateIconRepairListener()
   end
 end
 
@@ -1257,40 +1201,10 @@ local function BuildComponentsPanel(parent)
     for _, row in ipairs(vendorPool) do row:Hide() end
     for _, row in ipairs(deletePool) do row:Hide() end
 
-    -- Known pfUI VendorTweaks metadata wins immediately. Only incomplete entries
-    -- query WoW's item cache. If Refresh discovers a previously-untracked
-    -- missing icon, perform one shared bag scan; already-tracked misses rely on
-    -- the on-demand BAG_UPDATE repair listener instead of rescanning all bags.
-    local checked = {}
-    local discoveredMissing = false
-
-    local function ResolveListMetadata(list)
-      for id in pairs(list) do
-        local itemID = tonumber(id) or id
-        if not checked[itemID] then
-          checked[itemID] = true
-          local item = DB.items and DB.items[itemID]
-          local hasIcon = type(item) == "table" and item.icon
-
-          if hasIcon then
-            missingIconIDs[itemID] = nil
-          else
-            local wasMissing = missingIconIDs[itemID]
-            if not TryResolveItemIcon(itemID) and not wasMissing then
-              discoveredMissing = true
-            end
-          end
-        end
-      end
-    end
-
-    ResolveListMetadata(DB.vendorList)
-    ResolveListMetadata(DB.deleteList)
-
-    if discoveredMissing and next(missingIconIDs) then
-      ScanAllBagsForMissingIcons()
-    end
-    UpdateIconRepairListener()
+    -- Resolve missing presentation metadata only while the configuration is
+    -- being refreshed. A single bag scan is allowed here, but unresolved
+    -- icons fall back to the question mark without arming gameplay listeners.
+    ResolveListedItemIcons()
 
     -- List membership stays as an ID-keyed map. Build a temporary display array
     -- only when the panel refreshes so both columns are deterministic and
@@ -1412,12 +1326,6 @@ local function BuildComponentsPanel(parent)
     end
 
     CacheItemInfo(itemID, name or string.format(T_("VT_ITEM_FALLBACK"), itemID), texture)
-    if texture then
-      missingIconIDs[itemID] = nil
-    else
-      missingIconIDs[itemID] = true
-    end
-    UpdateIconRepairListener()
     Refresh()
 
     if mode == "vendor" then
@@ -1474,7 +1382,6 @@ eventFrame:SetScript("OnEvent", function()
   elseif event == "PLAYER_ENTERING_WORLD" then
     if not DB then InitDB() end
     ApplyGreyTakeover()
-    InitializeIconRepair()
     InstallMerchantPurchaseHooks()
 
   elseif event == "PLAYER_LOGOUT" then
