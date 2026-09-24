@@ -7,8 +7,6 @@ if not pfUI then return end
 local ADDON_NAME = "pfUI_VendorTweaks"
 local ADDON_VERSION = GetAddOnMetadata(ADDON_NAME, "Version")
 local DB = nil
-local missingIconIDs = {}
-local iconRepairInitialized = false
 
 -- -----------------------------------------------------------------------------
 -- SavedVariables: bind only after the addon SavedVariables have been restored.
@@ -95,30 +93,14 @@ local function CacheItemInfo(id, name, texture)
 end
 
 -- -----------------------------------------------------------------------------
--- On-demand icon repair
--- Dormant when every listed item already has cached artwork.
+-- On-demand item icon resolution
+-- Runs only while VendorTweaks configuration is refreshed or updated.
 -- -----------------------------------------------------------------------------
-local iconRepairFrame = CreateFrame("Frame")
-local iconRepairListening = false
-
-local function UpdateIconRepairListener()
-  local shouldListen = next(missingIconIDs) ~= nil
-
-  if shouldListen and not iconRepairListening then
-    iconRepairFrame:RegisterEvent("BAG_UPDATE")
-    iconRepairListening = true
-  elseif not shouldListen and iconRepairListening then
-    iconRepairFrame:UnregisterEvent("BAG_UPDATE")
-    iconRepairListening = false
-  end
-end
-
 local function TryResolveItemIcon(id)
   if not DB or not id then return false end
 
   local item = DB.items and DB.items[id]
   if type(item) == "table" and item.icon then
-    missingIconIDs[id] = nil
     return true
   end
 
@@ -128,92 +110,54 @@ local function TryResolveItemIcon(id)
   end
 
   item = DB.items and DB.items[id]
-  if type(item) == "table" and item.icon then
-    missingIconIDs[id] = nil
-    return true
-  end
-
-  missingIconIDs[id] = true
-  return false
+  return type(item) == "table" and item.icon ~= nil
 end
 
-local function ScanBagForMissingIcons(bag)
-  if not DB or not next(missingIconIDs) then return end
-  if bag == nil or bag < 0 or bag > 4 then return end
-
-  local size = GetContainerNumSlots(bag) or 0
-  for slot = 1, size do
-    local link = GetContainerItemLink(bag, slot)
-    local id = GetIDFromLink(link)
-    if id and missingIconIDs[id] then
-      local texture = GetContainerItemInfo(bag, slot)
-      if texture then
-        local name = GetItemInfo(link or id)
-        CacheItemInfo(id, name, texture)
-        missingIconIDs[id] = nil
-      end
-    end
-  end
-end
-
-local function ScanAllBagsForMissingIcons()
-  if not next(missingIconIDs) then return end
-  for bag = 0, 4 do
-    ScanBagForMissingIcons(bag)
-    if not next(missingIconIDs) then break end
-  end
-end
-
-local function RebuildMissingIconIDs()
-  missingIconIDs = {}
+local function ResolveListedItemIcons()
   if not DB then return end
 
+  local missing = {}
   local checked = {}
+
   local function CheckList(list)
     for id in pairs(list) do
       local itemID = tonumber(id)
       if itemID and not checked[itemID] then
         checked[itemID] = true
-        TryResolveItemIcon(itemID)
+        if not TryResolveItemIcon(itemID) then
+          missing[itemID] = true
+        end
       end
     end
   end
 
   CheckList(DB.vendorList)
   CheckList(DB.deleteList)
-end
 
-local function InitializeIconRepair()
-  -- PLAYER_ENTERING_WORLD also fires after zoning; the initial full scan is
-  -- intentionally once per session. After this, BAG_UPDATE scans only the bag
-  -- that actually changed and only while unresolved icons still exist.
-  if iconRepairInitialized then return end
-  iconRepairInitialized = true
+  if not next(missing) then return end
 
-  RebuildMissingIconIDs()
-  if next(missingIconIDs) then
-    ScanAllBagsForMissingIcons()
+  for bag = 0, 4 do
+    local size = GetContainerNumSlots(bag) or 0
+    for slot = 1, size do
+      local link = GetContainerItemLink(bag, slot)
+      local id = GetIDFromLink(link)
+      if id and missing[id] then
+        local texture = GetContainerItemInfo(bag, slot)
+        if texture then
+          local name = GetItemInfo(link or id)
+          CacheItemInfo(id, name, texture)
+          missing[id] = nil
+        end
+      end
+    end
+    if not next(missing) then break end
   end
-  UpdateIconRepairListener()
 end
-
-iconRepairFrame:SetScript("OnEvent", function()
-  if event ~= "BAG_UPDATE" or not DB or not next(missingIconIDs) then return end
-
-  local bag = tonumber(arg1)
-  if bag and bag >= 0 and bag <= 4 then
-    ScanBagForMissingIcons(bag)
-  end
-
-  UpdateIconRepairListener()
-end)
 
 local function PruneItemInfo(id)
   if not DB or not DB.items or not id then return end
   if not DB.vendorList[id] and not DB.deleteList[id] then
     DB.items[id] = nil
-    missingIconIDs[id] = nil
-    UpdateIconRepairListener()
   end
 end
 
@@ -257,27 +201,33 @@ end
 -- Both grey takeover and Auto-Vendor feed this one queue.
 -- -----------------------------------------------------------------------------
 local sellQueue = {}
+local sellQueueIndex = 1
 local sellTimer = 0
+local sellInterval = 0.35
 local worker = CreateFrame("Frame", "pfUI_VendorTweaks_Worker", UIParent)
 worker:Hide()
 
 worker:SetScript("OnUpdate", function()
   sellTimer = sellTimer + arg1
-  if sellTimer < GetInterval() then return end
+  if sellTimer < sellInterval then return end
   sellTimer = 0
 
-  if table.getn(sellQueue) == 0 then
+  if sellQueueIndex > table.getn(sellQueue) then
+    sellQueue = {}
+    sellQueueIndex = 1
     worker:Hide()
     return
   end
 
   if not MerchantFrame:IsVisible() then
     sellQueue = {}
+    sellQueueIndex = 1
     worker:Hide()
     return
   end
 
-  local item = table.remove(sellQueue, 1)
+  local item = sellQueue[sellQueueIndex]
+  sellQueueIndex = sellQueueIndex + 1
   local currentLink = GetContainerItemLink(item.bag, item.slot)
   local currentID = GetIDFromLink(currentLink)
 
@@ -288,12 +238,20 @@ worker:SetScript("OnUpdate", function()
       DEFAULT_CHAT_FRAME:AddMessage("|cff33ff33[pfUI VendorTweaks]|r " .. string.format(T_("VT_SOLD"), currentLink))
     end
   end
+
+  if sellQueueIndex > table.getn(sellQueue) then
+    sellQueue = {}
+    sellQueueIndex = 1
+    worker:Hide()
+  end
 end)
 
 local function StartSellQueue(includeGreys, includeCustom)
   if not DB then return end
 
   sellQueue = {}
+  sellQueueIndex = 1
+  sellInterval = GetInterval()
 
   for bag = 0, 4 do
     local size = GetContainerNumSlots(bag) or 0
@@ -331,6 +289,8 @@ end
 
 local function CancelSellQueue()
   sellQueue = {}
+  sellQueueIndex = 1
+  sellTimer = 0
   worker:Hide()
 end
 
@@ -752,17 +712,11 @@ binFrame:SetScript("OnUpdate", function()
     end
   end
 
-  -- Existing burn test behaviour is preserved while Debug.lua tunes the
-  -- relative icon/fire placement. The revised animation will replace this.
+  -- PlayBinAnimation already establishes the unchanged pre-burn icon state.
+  -- Only switch anchors once when the wipe starts, then update the properties
+  -- that actually change over the remainder of the animation.
   local burnStart = 3 / BIN_FRAME_COUNT
-  if progress <= burnStart then
-    binIconWiping = false
-    binIcon:SetAlpha(1)
-    binIcon:SetVertexColor(1, 1, 1, 1)
-    binIcon:SetTexCoord(0, 1, 0, 1)
-    binIcon:SetHeight(32)
-    ApplyBinIconPosition()
-  else
+  if progress > burnStart then
     local burn = (progress - burnStart) / (1 - burnStart)
     if burn > 1 then burn = 1 end
 
@@ -771,12 +725,13 @@ binFrame:SetScript("OnUpdate", function()
     if char > 1 then char = 1 end
     local shade = 1 - char
 
-    binIconWiping = true
-    binIcon:SetAlpha(1)
+    if not binIconWiping then
+      binIconWiping = true
+      ApplyBinIconPosition()
+    end
     binIcon:SetVertexColor(shade, shade, shade, 1)
     binIcon:SetTexCoord(0, 1, burn, 1)
     binIcon:SetHeight(math.max(0.5, 32 * remain))
-    ApplyBinIconPosition()
   end
 end)
 
@@ -788,10 +743,32 @@ binFrame:Hide()
 local deleteWorker = CreateFrame("Frame", "pfUI_VendorTweaks_DeleteWorker", UIParent)
 deleteWorker:Hide()
 
+-- The main event frame is created after the configuration UI is defined, but
+-- Auto-Delete helpers need to update its demand-driven event registrations.
+local eventFrame = nil
+
 local function StopDeleteWorker(clearPending)
-  if clearPending then pendingDeleteIDs = {} end
+  if clearPending then
+    pendingDeleteIDs = {}
+    if eventFrame then eventFrame:UnregisterEvent("BAG_UPDATE") end
+  end
   deletePendingAt = nil
   deleteWorker:Hide()
+end
+
+local function HasDeleteListItems()
+  return DB and type(DB.deleteList) == "table" and next(DB.deleteList) ~= nil
+end
+
+local function UpdateAutoDeleteEventRegistration()
+  if not eventFrame then return end
+
+  if Enabled("autoDelete") and HasDeleteListItems() then
+    eventFrame:RegisterEvent("CHAT_MSG_LOOT")
+  else
+    eventFrame:UnregisterEvent("CHAT_MSG_LOOT")
+    StopDeleteWorker(true)
+  end
 end
 
 local function ExecuteSafeDeleteStep()
@@ -800,8 +777,14 @@ local function ExecuteSafeDeleteStep()
     return
   end
 
-  -- Never interfere with an item already held by the player.
-  if CursorHasItem() then return end
+  -- Never interfere with an item already held by the player. If the cursor is
+  -- occupied when this step becomes due, stop this worker cycle immediately
+  -- but retain pending IDs; the next legitimate BAG_UPDATE will re-arm the
+  -- existing debounce instead of leaving this frame polling every update.
+  if CursorHasItem() then
+    StopDeleteWorker(false)
+    return
+  end
 
   for bag = 0, 4 do
     local size = GetContainerNumSlots(bag) or 0
@@ -847,7 +830,6 @@ end
 
 deleteWorker:SetScript("OnUpdate", function()
   if not deletePendingAt or GetTime() < deletePendingAt then return end
-  if CursorHasItem() then return end
   ExecuteSafeDeleteStep()
 end)
 
@@ -970,6 +952,7 @@ local function BuildComponentsPanel(parent)
     if not DB then return end
     local val = floor(this:GetValue() * 100 + 0.5) / 100
     DB.interval = tostring(val)
+    sellInterval = val
     if sliderText then sliderText:SetText(string.format("%.2fs", val)) end
   end)
 
@@ -998,11 +981,7 @@ local function BuildComponentsPanel(parent)
     if not DB then return end
     DB.autoDelete = this:GetChecked() and "1" or "0"
     UpdateCheckboxMark(this)
-    if not Enabled("autoDelete") then
-      pendingDeleteIDs = {}
-      deletePendingAt = nil
-      deleteWorker:Hide()
-    end
+    UpdateAutoDeleteEventRegistration()
   end)
 
   -- Keep Auto-Delete feedback controls between the feature toggle and its
@@ -1142,13 +1121,10 @@ local function BuildComponentsPanel(parent)
     icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
 
     local elapsed = 0
-    local running = false
     local startX, startY = 0, 0
     local targetX, targetY = -7, -55
 
-    drop:SetScript("OnUpdate", function()
-      if not running then return end
-
+    local function UpdateDropAnimation()
       elapsed = elapsed + arg1
       local flashTime = .18
       local slideTime = .42
@@ -1161,7 +1137,7 @@ local function BuildComponentsPanel(parent)
 
       local t = (elapsed - flashTime) / slideTime
       if t >= 1 then
-        running = false
+        drop:SetScript("OnUpdate", nil)
         visual:Hide()
         visual:SetAlpha(1)
         visual:SetScale(1)
@@ -1179,7 +1155,7 @@ local function BuildComponentsPanel(parent)
       visual:SetPoint("CENTER", drop, "CENTER", x, y)
       visual:SetScale(1 - (.65 * e))
       visual:SetAlpha(1 - (.35 * e))
-    end)
+    end
 
     local animator = {}
     function animator:Play(texture)
@@ -1187,13 +1163,13 @@ local function BuildComponentsPanel(parent)
       targetX, targetY = -7, -55
 
       elapsed = 0
-      running = true
       icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
       visual:SetAlpha(1)
       visual:SetScale(1)
       visual:ClearAllPoints()
       visual:SetPoint("CENTER", drop, "CENTER", 0, 0)
       visual:Show()
+      drop:SetScript("OnUpdate", UpdateDropAnimation)
     end
 
     return animator
@@ -1257,40 +1233,10 @@ local function BuildComponentsPanel(parent)
     for _, row in ipairs(vendorPool) do row:Hide() end
     for _, row in ipairs(deletePool) do row:Hide() end
 
-    -- Known pfUI VendorTweaks metadata wins immediately. Only incomplete entries
-    -- query WoW's item cache. If Refresh discovers a previously-untracked
-    -- missing icon, perform one shared bag scan; already-tracked misses rely on
-    -- the on-demand BAG_UPDATE repair listener instead of rescanning all bags.
-    local checked = {}
-    local discoveredMissing = false
-
-    local function ResolveListMetadata(list)
-      for id in pairs(list) do
-        local itemID = tonumber(id) or id
-        if not checked[itemID] then
-          checked[itemID] = true
-          local item = DB.items and DB.items[itemID]
-          local hasIcon = type(item) == "table" and item.icon
-
-          if hasIcon then
-            missingIconIDs[itemID] = nil
-          else
-            local wasMissing = missingIconIDs[itemID]
-            if not TryResolveItemIcon(itemID) and not wasMissing then
-              discoveredMissing = true
-            end
-          end
-        end
-      end
-    end
-
-    ResolveListMetadata(DB.vendorList)
-    ResolveListMetadata(DB.deleteList)
-
-    if discoveredMissing and next(missingIconIDs) then
-      ScanAllBagsForMissingIcons()
-    end
-    UpdateIconRepairListener()
+    -- Resolve missing presentation metadata only while the configuration is
+    -- being refreshed. A single bag scan is allowed here, but unresolved
+    -- icons fall back to the question mark without arming gameplay listeners.
+    ResolveListedItemIcons()
 
     -- List membership stays as an ID-keyed map. Build a temporary display array
     -- only when the panel refreshes so both columns are deterministic and
@@ -1353,6 +1299,7 @@ local function BuildComponentsPanel(parent)
       row.del:SetScript("OnClick", function()
         DB.deleteList[idKey] = nil
         PruneItemInfo(idKey)
+        UpdateAutoDeleteEventRegistration()
         Refresh()
       end)
       row:Show()
@@ -1386,6 +1333,7 @@ local function BuildComponentsPanel(parent)
       DB.vendorList[itemID] = nil
       SetDropHighlight(deleteDrop, false)
     end
+    UpdateAutoDeleteEventRegistration()
 
     ClearCursor()
 
@@ -1412,12 +1360,6 @@ local function BuildComponentsPanel(parent)
     end
 
     CacheItemInfo(itemID, name or string.format(T_("VT_ITEM_FALLBACK"), itemID), texture)
-    if texture then
-      missingIconIDs[itemID] = nil
-    else
-      missingIconIDs[itemID] = true
-    end
-    UpdateIconRepairListener()
     Refresh()
 
     if mode == "vendor" then
@@ -1445,15 +1387,13 @@ end
 -- -----------------------------------------------------------------------------
 -- Events
 -- -----------------------------------------------------------------------------
-local eventFrame = CreateFrame("Frame")
+eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("VARIABLES_LOADED")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_LOGOUT")
 eventFrame:RegisterEvent("MERCHANT_SHOW")
 eventFrame:RegisterEvent("MERCHANT_CLOSED")
-eventFrame:RegisterEvent("CHAT_MSG_LOOT")
-eventFrame:RegisterEvent("BAG_UPDATE")
 
 eventFrame:SetScript("OnEvent", function()
   if event == "ADDON_LOADED" then
@@ -1461,6 +1401,7 @@ eventFrame:SetScript("OnEvent", function()
       InitDB()
       InitLootPatterns()
       ApplyGreyTakeover()
+      UpdateAutoDeleteEventRegistration()
     end
 
   elseif event == "VARIABLES_LOADED" then
@@ -1469,12 +1410,13 @@ eventFrame:SetScript("OnEvent", function()
       InitDB()
       InitLootPatterns()
       ApplyGreyTakeover()
+      UpdateAutoDeleteEventRegistration()
     end
 
   elseif event == "PLAYER_ENTERING_WORLD" then
     if not DB then InitDB() end
     ApplyGreyTakeover()
-    InitializeIconRepair()
+    UpdateAutoDeleteEventRegistration()
     InstallMerchantPurchaseHooks()
 
   elseif event == "PLAYER_LOGOUT" then
@@ -1502,11 +1444,15 @@ eventFrame:SetScript("OnEvent", function()
     vendorPurchaseExemptions = {}
 
   elseif event == "CHAT_MSG_LOOT" then
-    if DB and Enabled("autoDelete") and arg1 and IsSelfLootMessage(arg1) then
+    -- Reject unrelated loot by item ID before doing localized self-loot pattern
+    -- matching. This event is registered only while Auto-Delete is enabled and
+    -- the delete list is non-empty.
+    if DB and arg1 then
       local id = GetIDFromLink(arg1)
-      if id and DB.deleteList[id] then
+      if id and DB.deleteList[id] and IsSelfLootMessage(arg1) then
         if not ConsumeVendorPurchaseExemption(id) then
           pendingDeleteIDs[id] = true
+          eventFrame:RegisterEvent("BAG_UPDATE")
         end
       end
     end
