@@ -2,14 +2,15 @@
 
 ## Current
 - Branch: `dev`
-- Dev version: `0.1.28-dev`
+- Dev version: `0.1.28-dev` baseline; next runtime change will bump to `0.1.29-dev`.
 - Stable release: `0.1.28` on `main` at `9df26d5606bcfecae59d22227219fe6d939bfe94`.
 - User-tested runtime source: `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`; the stable release uses the exact same `pfUI_VendorTweaks.lua` blob (`d4011262f648fe98bcf78be37640cbce249d6e6b`) with stable TOC metadata and dev-only material removed.
 - Release-facing P3 runtime commit: `50efdff8f24001010b087abdf817da86a669646a`.
 - P2 runtime commit: `63a75ebdda85bec16dc074f48622fd1bcdd38576`.
 - P1 runtime commits: `a1c9b6daec6fd06b644a804b19d6490cb89babab` and `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf`.
-- Mode: maintenance. The performance pass is complete, user-accepted, validated, and promoted. Do not begin speculative optimization or feature work without a new explicit request.
-- Current scope: regression fixes, compatibility maintenance, or explicitly requested changes only.
+- Current dev head/handoff before this feature pass: `f9143abb659481007ac497ec00d5451a6800a4e6`.
+- Mode: active feature development by explicit user request.
+- Current scope: add user-configurable Auto-Delete burn duration and an Auto-Buy maintain-stock feature, with the minimum configuration-panel re-layout needed to support both. Preserve the accepted `0.1.28` vendor/delete/runtime baseline outside this delta.
 
 ## Current Design / Development Contract
 
@@ -36,11 +37,37 @@
 - Vendor/delete list membership remains item-ID keyed; cached names/icons remain presentation metadata rather than behavioural authority.
 
 ### Active Decisions
-- The addon is feature-complete and has returned to maintenance mode after the completed `0.1.28` performance pass.
+- The completed `0.1.28` performance pass remains the accepted baseline; `0.1.29-dev` is a new explicit feature line.
 - The performance audit should prioritize removing recurring idle/background work over micro-optimizing one-shot configuration or merchant operations.
 - Preserve event-driven ownership: temporary workers may run while a real operation is active, but they should become fully dormant when no work is pending.
 - The longer/higher-frame/two-part Fire/Ash burn replacement remains shelved; the restored 8-frame implementation is the approved production state.
 - Sell-chat ON/OFF behaviour, Auto-Vendor feedback layout, Auto-Delete feedback controls, and current branding are accepted behaviour.
+
+## Active Feature Pass — 0.1.29-dev
+
+### Requested behaviour
+- Auto-Delete burn feedback gets a persistent user setting for total animation duration. Existing 1.0-second behaviour remains the default and the same 8-frame strip/progression is retained.
+- Auto-Buy maintains a configured actual item count in bags `0`–`4` when a merchant selling that item is opened.
+- Auto-Buy configuration is item-ID keyed. Each entry stores its desired bag count; cached name/icon/stack metadata remains presentation/defaulting data.
+- Dropping a new Auto-Buy item defaults its desired amount to one normal item stack when `GetItemInfo` supplies a stack size, otherwise `1`. The amount remains directly editable.
+- Merchant matching is by exact item ID. Merchant sale quantity/batch size from `GetMerchantItemInfo` must be respected so a purchase does not leave the requested target short merely because the merchant sells in lots.
+- Auto-Buy counts bags only, not bank contents.
+- Auto-Vendor, Auto-Delete and Auto-Buy membership are mutually exclusive for the same item because simultaneous buy/sell/delete ownership would create contradictory merchant behaviour.
+- Do not add speculative buy throttling, confirmation systems, bank counting, restock categories, or unrelated vendor features in this pass.
+
+### UI direction
+- Keep the existing two-column Auto-Vendor / Auto-Delete lists.
+- Add burn-duration control with the Auto-Delete feedback controls.
+- Add a dedicated Auto-Buy section below the existing two columns, with a drop target and editable desired quantity on each configured row.
+- Re-layout only as much as needed for clear spacing and clickability; preserve the accepted pfUI styling patterns.
+
+### Validation gates
+- Real Lua 5.0.2 compile/static check before runtime handoff.
+- Runtime: existing Auto-Vendor and Auto-Delete regression sanity.
+- Runtime: burn animation at default plus at least one shorter and one longer configured duration.
+- Runtime: Auto-Buy with an item sold singly and an item sold in a merchant batch; test below-target, exactly-at-target, and above-target bag counts.
+- Runtime: verify a configured Auto-Buy item at one normal stack default can be edited to an arbitrary count and persists across reload.
+- Runtime: confirm list exclusivity when moving the same item between Auto-Vendor, Auto-Delete and Auto-Buy.
 
 ## Performance Audit Findings
 
@@ -166,9 +193,11 @@ Post-P3 re-audit:
 - None scheduled. Resume runtime testing only when a future maintenance change introduces a new runtime delta.
 
 ## Planned / Next Work
-- No active development work. Project is in maintenance mode.
-- Future work should begin only for a reported regression, compatibility need, or explicit new request.
-- Any future runtime edit starts a new tested delta from stable `main` `0.1.28` at `9df26d5606bcfecae59d22227219fe6d939bfe94`.
+- Begin `0.1.29-dev` from the accepted stable/runtime baseline.
+- Implement burn-duration SavedVariable + UI control and route normal burn playback through it.
+- Implement item-ID keyed Auto-Buy desired counts, bag counting, merchant matching/purchasing, and list exclusivity.
+- Re-layout the configuration panel only as required for the new controls.
+- Run static/Lua 5.0.2 checks, then stop for the documented runtime-validation gate.
 
 ## Deferred / Out of Scope
 - Longer/higher-frame/two-part burn replacement remains shelved.
@@ -186,4 +215,4 @@ Post-P3 re-audit:
 - External/runtime prerequisites remain World of Warcraft 1.12.1 and pfUI; no optional DLL/client extension is required.
 
 ## Exact Next Step
-None. The addon is in maintenance mode at stable `0.1.28` (`main` `9df26d5606bcfecae59d22227219fe6d939bfe94`). On the next explicit maintenance request, read this file and `dev_rulebook.md`, verify current branch heads, and start from the stable `0.1.28` baseline unless the request intentionally establishes a new development line.
+Bump the development TOC to `0.1.29-dev`, implement only the two requested features and required options-panel re-layout from `dev` head `f9143abb659481007ac497ec00d5451a6800a4e6`, run the real Lua 5.0.2/static checks, update this file with the resulting exact commit/check state, and hand off the runtime validation gates above.
