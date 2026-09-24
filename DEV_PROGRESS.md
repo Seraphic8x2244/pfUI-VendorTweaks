@@ -52,7 +52,6 @@ The audit was performed against `dev` at `3db6fea316d8684223dc9bd6ca745784dd8317
 - The bin animation frame is also hidden when idle; its `OnUpdate` runs only while the animation/pfUI unlock visibility keeps the frame shown.
 - The strongest opportunities are therefore demand-driven event registration and edge cases that can leave temporary work active longer than intended.
 
-### P1 — remove background icon-repair listening
 ### P1 — background icon-repair listening removed in `0.1.28-dev`
 Implemented at `a1c9b6daec6fd06b644a804b19d6490cb89babab`:
 - Deleted the session-persistent `missingIconIDs` state, `iconRepairFrame`, `BAG_UPDATE` registration/re-registration logic, and zoning-time icon-repair initialization.
@@ -198,6 +197,3 @@ The final complete performance delta must still receive the broader runtime test
 
 ## Exact Next Step
 Begin the next performance stage from the current remote `dev` handoff: redesign the occupied-cursor Auto-Delete worker path so a due deletion cannot leave a visible worker polling every frame while the cursor is occupied. Preserve fail-closed safety, the existing delete debounce/settling semantics that are required for correctness, and all current list/SavedVariables/feedback behaviour. Do not yet change the main Auto-Delete `BAG_UPDATE` registration or `CHAT_MSG_LOOT` filtering as part of that worker-only step. Run static review and the real Lua 5.0.2 checker again before proceeding to the subsequent event-registration stage. Do not promote to `main` until the complete performance runtime delta is user-tested and accepted.
-
-
-Start the performance build from the current remote `dev` handoff. First bump the TOC to the next development version, then remove the background icon-repair `BAG_UPDATE` subsystem and replace it with on-demand icon resolution during configuration refresh/item addition only. Preserve question-mark fallback behaviour and all vendor/delete list semantics. Do not begin the later Auto-Delete worker/event rewrite until that first change has passed static review and the real Lua 5.0 compiler/compatibility checks.
