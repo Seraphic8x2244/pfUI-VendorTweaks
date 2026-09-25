@@ -69,41 +69,25 @@ local function InitDB()
   DB.vendorList = MigrateList(DB.vendorList)
   DB.deleteList = MigrateList(DB.deleteList)
 
+  -- 0.1.31 briefly stored Auto-Buy values as "inventory stacks". Those values
+  -- are ambiguous after returning to an explicit item-count ceiling: a saved
+  -- "5" may mean five items to the user or five full inventory stacks to the
+  -- old runtime. Clear only that unvalidated representation rather than risk an
+  -- unexpectedly large purchase after upgrade.
+  if DB.buyListUnit == "inventory_stacks" then
+    DB.buyList = {}
+  end
+
   local normalizedBuy = {}
-  local migrateBuyCounts = DB.buyListUnit ~= "inventory_stacks"
   for id, value in pairs(DB.buyList) do
     local itemID = tonumber(id)
-    local configured = tonumber(value)
-    if itemID and configured and configured >= 0 then
-      configured = math.floor(configured)
-
-      -- 0.1.30 stored desired item counts. 0.1.31 stores inventory-stack
-      -- counts instead, so convert the unvalidated 0.1.30 values once.
-      if migrateBuyCounts and configured > 0 then
-        local item = DB.items[itemID]
-        local stackSize = type(item) == "table" and tonumber(item.stack) or nil
-        if not stackSize or stackSize < 1 then
-          local _, _, _, _, _, _, _, infoStack = GetItemInfo(itemID)
-          stackSize = tonumber(infoStack)
-          if stackSize and stackSize >= 1 then
-            if type(item) ~= "table" then item = {} end
-            item.stack = stackSize
-            DB.items[itemID] = item
-          end
-        end
-
-        if stackSize and stackSize >= 1 then
-          configured = math.ceil(configured / stackSize)
-        else
-          configured = 1
-        end
-      end
-
-      normalizedBuy[itemID] = configured
+    local maximum = tonumber(value)
+    if itemID and maximum and maximum >= 0 then
+      normalizedBuy[itemID] = math.floor(maximum)
     end
   end
   DB.buyList = normalizedBuy
-  DB.buyListUnit = "inventory_stacks"
+  DB.buyListUnit = "max_count"
 end
 
 local function GetInterval()
@@ -260,9 +244,10 @@ end
 
 -- -----------------------------------------------------------------------------
 -- Auto-Buy maintain-stock engine
--- Counts only bags 0-4. DB.buyList values are inventory-stack counts; each
--- target is capped at stack-size * configured stacks and only whole merchant
--- batches that fit under that cap are purchased.
+-- DB.buyList values are hard item-count ceilings across bags 0-4.
+-- GetMerchantItemInfo quantity is the vendor batch size. On 1.12-era clients
+-- BuyMerchantItem's quantity argument is inconsistent for batched goods, so
+-- batched items are purchased one vendor batch per no-quantity API call.
 -- -----------------------------------------------------------------------------
 local function CountBagItem(itemID)
   local total = 0
@@ -279,22 +264,6 @@ local function CountBagItem(itemID)
   return total
 end
 
-local function GetAutoBuyStackSize(itemID)
-  local item = DB and DB.items and DB.items[itemID]
-  local stackSize = type(item) == "table" and tonumber(item.stack) or nil
-
-  if not stackSize or stackSize < 1 then
-    local _, _, _, _, _, _, _, infoStack = GetItemInfo(itemID)
-    stackSize = tonumber(infoStack)
-    if stackSize and stackSize >= 1 then
-      CacheItemInfo(itemID, nil, nil, stackSize)
-    end
-  end
-
-  if not stackSize or stackSize < 1 then stackSize = 1 end
-  return math.floor(stackSize)
-end
-
 local function MaintainAutoBuyStock()
   if not DB or type(DB.buyList) ~= "table" then return end
 
@@ -304,13 +273,12 @@ local function MaintainAutoBuyStock()
   for index = 1, merchantCount do
     local link = GetMerchantItemLink(index)
     local id = GetIDFromLink(link)
-    local inventoryStacks = id and tonumber(DB.buyList[id]) or nil
+    local maximum = id and tonumber(DB.buyList[id]) or nil
 
-    if id and inventoryStacks and inventoryStacks >= 0 and not processed[id] then
+    if id and maximum and maximum >= 0 and not processed[id] then
       processed[id] = true
-      inventoryStacks = math.floor(inventoryStacks)
+      maximum = math.floor(maximum)
 
-      local maximum = GetAutoBuyStackSize(id) * inventoryStacks
       local have = CountBagItem(id)
       if have < maximum then
         local _, _, _, batchSize, numAvailable = GetMerchantItemInfo(index)
@@ -318,16 +286,30 @@ local function MaintainAutoBuyStock()
         if batchSize < 1 then batchSize = 1 end
 
         local deficit = maximum - have
-        local amount = math.floor(deficit / batchSize) * batchSize
+        local unitsToBuy = math.floor(deficit / batchSize) * batchSize
 
-        if numAvailable and numAvailable >= 0 and amount > numAvailable then
-          amount = numAvailable
+        -- numAvailable is reported as item units. Keep the request to whole
+        -- vendor batches even for limited-stock merchants.
+        if numAvailable and numAvailable >= 0 and unitsToBuy > numAvailable then
+          unitsToBuy = math.floor(numAvailable / batchSize) * batchSize
         end
 
-        if amount > 0 then
-          BuyMerchantItem(index, amount)
+        if unitsToBuy > 0 then
+          local batchesToBuy = math.floor(unitsToBuy / batchSize)
+
+          if batchSize == 1 then
+            -- For singly sold goods the quantity argument is unambiguous.
+            BuyMerchantItem(index, batchesToBuy)
+          else
+            -- One no-quantity call is one vendor batch on the target 1.12
+            -- client. Repeating it avoids relying on ambiguous quantity units.
+            for _ = 1, batchesToBuy do
+              BuyMerchantItem(index)
+            end
+          end
+
           if Enabled("showBuyChat") then
-            DEFAULT_CHAT_FRAME:AddMessage("|cff33ffcc[pfUI VendorTweaks]|r " .. string.format(T_("VT_BOUGHT"), link or string.format(T_("VT_ITEM_FALLBACK"), id), amount))
+            DEFAULT_CHAT_FRAME:AddMessage("|cff33ffcc[pfUI VendorTweaks]|r " .. string.format(T_("VT_BOUGHT"), link or string.format(T_("VT_ITEM_FALLBACK"), id), unitsToBuy))
           end
         end
       end
@@ -1235,25 +1217,31 @@ local function BuildComponentsPanel(parent)
   buyDrop.stage.icon:SetAllPoints(buyDrop.stage)
   buyDrop.stage:Hide()
 
-  local buyStacksLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  buyStacksLabel:SetPoint("TOPLEFT", buyDrop, "BOTTOMLEFT", 0, -11)
-  buyStacksLabel:SetText(T_("VT_INVENTORY_STACKS"))
+  local buyMaximumLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  buyMaximumLabel:SetPoint("TOPLEFT", buyDrop, "BOTTOMLEFT", 0, -11)
+  buyMaximumLabel:SetText(T_("VT_NO_MORE_THAN"))
 
-  local buyStacks = CreateFrame("EditBox", nil, parent)
-  buyStacks:SetWidth(40)
-  buyStacks:SetHeight(18)
-  buyStacks:SetAutoFocus(false)
-  buyStacks:SetFontObject(GameFontHighlightSmall)
-  buyStacks:SetJustifyH("CENTER")
-  buyStacks:EnableKeyboard(true)
-  if buyStacks.SetNumeric then buyStacks:SetNumeric(true) end
-  buyStacks:SetPoint("LEFT", buyStacksLabel, "RIGHT", 8, 0)
-  if pfUI.api and pfUI.api.SkinEditBox then pfUI.api.SkinEditBox(buyStacks) end
+  -- Use a permanent pfUI backdrop holder so the input target is visible even
+  -- before an item has been staged and the EditBox contains no text.
+  local buyMaximumBox = CreateFrame("Frame", nil, parent)
+  buyMaximumBox:SetWidth(44)
+  buyMaximumBox:SetHeight(20)
+  buyMaximumBox:SetPoint("LEFT", buyMaximumLabel, "RIGHT", 8, 0)
+  if pfUI.api and pfUI.api.CreateBackdrop then pfUI.api.CreateBackdrop(buyMaximumBox, nil, true) end
+
+  local buyMaximum = CreateFrame("EditBox", nil, buyMaximumBox)
+  buyMaximum:SetPoint("TOPLEFT", buyMaximumBox, "TOPLEFT", 3, -1)
+  buyMaximum:SetPoint("BOTTOMRIGHT", buyMaximumBox, "BOTTOMRIGHT", -3, 1)
+  buyMaximum:SetAutoFocus(false)
+  buyMaximum:SetFontObject(GameFontHighlightSmall)
+  buyMaximum:SetJustifyH("CENTER")
+  buyMaximum:EnableKeyboard(true)
+  if buyMaximum.SetNumeric then buyMaximum:SetNumeric(true) end
 
   local buyAdd = CreateFrame("Button", nil, parent)
   buyAdd:SetWidth(44)
   buyAdd:SetHeight(20)
-  buyAdd:SetPoint("LEFT", buyStacks, "RIGHT", 8, 0)
+  buyAdd:SetPoint("LEFT", buyMaximumBox, "RIGHT", 8, 0)
   if pfUI.api and pfUI.api.CreateBackdrop then pfUI.api.CreateBackdrop(buyAdd, nil, true) end
   buyAdd.text = buyAdd:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   buyAdd.text:SetPoint("CENTER", buyAdd, "CENTER", 0, 0)
@@ -1268,10 +1256,10 @@ local function BuildComponentsPanel(parent)
     if stagedBuy then
       buyDrop.stage.icon:SetTexture(stagedBuy.texture or "Interface\\Icons\\INV_Misc_QuestionMark")
       buyDrop.stage:Show()
-      buyStacks:SetText(tostring(stagedBuy.stacks or 1))
+      buyMaximum:SetText(tostring(stagedBuy.maximum or 1))
     else
       buyDrop.stage:Hide()
-      buyStacks:SetText("")
+      buyMaximum:SetText("")
     end
   end
 
@@ -1483,7 +1471,7 @@ local function BuildComponentsPanel(parent)
       row:SetScript("OnEnter", function()
         GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
         GameTooltip:SetText(displayText or string.format(T_("VT_ID"), idKey), 1, 1, 1)
-        GameTooltip:AddLine(T_("VT_INVENTORY_STACKS") .. ": " .. tostring(tonumber(DB.buyList[idKey]) or 0), .8, .8, .8)
+        GameTooltip:AddLine(T_("VT_NO_MORE_THAN") .. ": " .. tostring(tonumber(DB.buyList[idKey]) or 0), .8, .8, .8)
         GameTooltip:Show()
       end)
       row:SetScript("OnLeave", function()
@@ -1601,17 +1589,17 @@ local function BuildComponentsPanel(parent)
   local function CommitStagedBuy()
     if not DB or not stagedBuy then return end
 
-    local value = buyStacks:GetText()
+    local value = buyMaximum:GetText()
     if not value or not string.find(value, "^%d+$") then
-      buyStacks:SetText(tostring(tonumber(DB.buyList[stagedBuy.id]) or 1))
+      buyMaximum:SetText(tostring(tonumber(DB.buyList[stagedBuy.id]) or 1))
       return
     end
 
-    local stacks = tonumber(value)
-    if not stacks or stacks < 0 then return end
-    stacks = math.floor(stacks)
+    local maximum = tonumber(value)
+    if not maximum or maximum < 0 then return end
+    maximum = math.floor(maximum)
 
-    DB.buyList[stagedBuy.id] = stacks
+    DB.buyList[stagedBuy.id] = maximum
     DB.vendorList[stagedBuy.id] = nil
     DB.deleteList[stagedBuy.id] = nil
     UpdateAutoDeleteEventRegistration()
@@ -1622,15 +1610,15 @@ local function BuildComponentsPanel(parent)
   buyAdd:SetScript("OnClick", function()
     CommitStagedBuy()
   end)
-  buyStacks:SetScript("OnEnterPressed", function()
+  buyMaximum:SetScript("OnEnterPressed", function()
     CommitStagedBuy()
     this:ClearFocus()
   end)
-  buyStacks:SetScript("OnEscapePressed", function()
+  buyMaximum:SetScript("OnEscapePressed", function()
     if stagedBuy then
-      buyStacks:SetText(tostring(tonumber(DB.buyList[stagedBuy.id]) or 1))
+      buyMaximum:SetText(tostring(tonumber(DB.buyList[stagedBuy.id]) or 1))
     else
-      buyStacks:SetText("")
+      buyMaximum:SetText("")
     end
     this:ClearFocus()
   end)
@@ -1702,10 +1690,12 @@ local function BuildComponentsPanel(parent)
       Refresh()
       deleteDropAnim:Play(texture)
     else
+      local defaultMaximum = tonumber(stack) or 1
+      if defaultMaximum < 1 then defaultMaximum = 1 end
       SetBuyStage({
         id = itemID,
         texture = texture,
-        stacks = tonumber(DB.buyList[itemID]) or 1,
+        maximum = tonumber(DB.buyList[itemID]) or math.floor(defaultMaximum),
       })
     end
   end
