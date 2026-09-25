@@ -2,7 +2,7 @@
 
 ## Current
 - Branch: `dev`
-- Dev version: `0.1.30-dev`.
+- Dev version: `0.1.31-dev`.
 - Stable release: `0.1.28` on `main` at `9df26d5606bcfecae59d22227219fe6d939bfe94`.
 - User-tested runtime source: `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`; the stable release uses the exact same `pfUI_VendorTweaks.lua` blob (`d4011262f648fe98bcf78be37640cbce249d6e6b`) with stable TOC metadata and dev-only material removed.
 - Release-facing P3 runtime commit: `50efdff8f24001010b087abdf817da86a669646a`.
@@ -10,10 +10,12 @@
 - P1 runtime commits: `a1c9b6daec6fd06b644a804b19d6490cb89babab` and `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf`.
 - Feature-pass baseline: `f9143abb659481007ac497ec00d5451a6800a4e6`.
 - Pre-redesign head: `3fc2aee6626aceaf18964de96a0a1071cfa79286`; this was the prior handoff plus the repository-wide rulebook versioning clarification only.
-- Current pre-handoff dev head: `83091ddabeb814c5a2ee43b0fb8199c765754c4f`.
-- Lua-validated `0.1.30-dev` tree: `e89d7cdbafe3328c2f7f6350fcc9b3888952d7f1`; current `pfUI_VendorTweaks.lua` is the exact validated blob `203aa3a77661ce97e0288ecb2372681151c3c93d`, and the only later runtime-tree change removed the temporary checker workflow.
-- Mode: runtime-validation gate for the streamlined `0.1.30-dev` options/list-semantics pass.
-- Current scope: user-test the redesigned options layout, unconditional grey-sell takeover, list-driven Auto-Sell/Auto-Delete/Auto-Buy, Buy chat feedback, and the inherited Auto-Buy/burn backend before any promotion.
+- `0.1.30-dev` runtime-validation handoff: `932a35632eca5def6983b211db881ebfa6ecf4d9`; later commits before the user's test changed development documentation only.
+- `0.1.31-dev` runtime commit: `38453ab5567e37e6b2b8224c5b9f98aa4f9eb81d`.
+- Lua-validated `0.1.31-dev` tree: `336fd25e1ea2411c3a062360776c5cc919fabf25`; Actions run `36147804790` passed the canonical Lua 5.0.2 checker/self-test and all addon Lua files. Current runtime Lua is the exact validated blob `ed57167b86603600f7625f887eec67121a69936e`.
+- Current pre-handoff dev head: `f4854e17fe96b96c32e97ce7b5ff386743f2bfcb`; the only post-validation change removed the temporary checker workflow.
+- Mode: runtime-validation gate for the focused `0.1.31-dev` Auto-Buy staging/input and inventory-stack semantics correction.
+- Current scope: user-test only the corrected Auto-Buy UI/semantics plus the still-unverified `0.1.30-dev` merchant/burn/list delta. Do not promote or broaden scope.
 
 ## Current Design / Development Contract
 
@@ -27,7 +29,7 @@
 
 ### Invariants
 - Technical addon/folder/metadata identity is `pfUI_VendorTweaks`; stale hyphenated `pfUI-VendorTweaks.toc/.lua` files from older installs must not be used.
-- The addon version comes from the TOC. Current development is `0.1.30-dev`; it inherits the accepted `0.1.28` runtime baseline plus the untested `0.1.29-dev` Auto-Buy/burn backend, and adds the documented streamlined options/list-semantics delta.
+- The addon version comes from the TOC. Current development is `0.1.31-dev`; it inherits the accepted `0.1.28` runtime baseline plus the still-partially-tested `0.1.30-dev` feature work, and adds only the focused Auto-Buy staging/input and inventory-stack semantics correction.
 - The approved production Auto-Delete feedback remains the existing single 8-frame strip `artwork/pfUI_VendorTweaks_Burn.tga`, with `BIN_FRAME_COUNT = 8` and approximately 1.0 second default runtime.
 - Debug controls may tune/preview the existing animation but must not become a stable runtime dependency.
 - Do not introduce heuristic buyback matching: stock 1.12 buyback API does not expose an exact item link/ID suitable for a reliable Auto-Delete exemption.
@@ -37,16 +39,19 @@
 ### Protocol / Data Model
 - No external protocol is involved.
 - Existing item lists and metadata remain compatible. `0.1.30-dev` intentionally retires the old takeover/Auto-Vendor/Auto-Delete/Auto-Buy enable flags: list membership is now the feature opt-in, while Sell/Delete/Buy chat preferences remain persistent SavedVariables.
-- Vendor/delete list membership remains item-ID keyed. Auto-Buy is item-ID keyed with the configured desired bag count as its value; cached name/icon/stack metadata remains presentation/defaulting data rather than behavioural authority.
+- Vendor/delete list membership remains item-ID keyed. Auto-Buy is item-ID keyed with the configured number of inventory stacks as its value; item stack size determines the hard item-count ceiling for that entry.
+- `DB.buyListUnit = "inventory_stacks"` marks the `0.1.31` representation. Existing unmarked `0.1.30` desired-item-count values are migrated once by dividing by the known item stack size and rounding up; if stack metadata is unavailable, a positive old value migrates conservatively to one inventory stack.
+- Cached name/icon/stack metadata remains presentation/defaulting data except that Auto-Buy now necessarily uses the real item stack size to calculate its configured inventory-cap ceiling.
 
 ### Active Decisions
-- The completed `0.1.28` performance pass remains the accepted runtime baseline; `0.1.30-dev` contains the still-unvalidated `0.1.29-dev` Auto-Buy/burn work plus the approved options/list-semantics redesign.
+- The completed `0.1.28` performance pass remains the accepted runtime baseline. The `0.1.30-dev` options layout was partially exercised and judged basically fine, but its inline Auto-Buy quantity EditBox focused/blinked without accepting typed input.
+- The user approved replacing direct per-row quantity editing with a staged Auto-Buy flow: drop item, enter `Inventory stacks`, press `Add`, then show the configured stack count attached to the saved item icon.
 - The performance audit should prioritize removing recurring idle/background work over micro-optimizing one-shot configuration or merchant operations.
 - Preserve event-driven ownership: temporary workers may run while a real operation is active, but they should become fully dormant when no work is pending.
 - The longer/higher-frame/two-part Fire/Ash burn replacement remains shelved; the restored 8-frame implementation is the approved production state.
 - Current branding remains `pfUI VendorTweaks`. The old feature-enable and animation-enable checkbox layout is superseded by the user-approved streamlined controls in this pass.
 
-## Active Feature Pass — 0.1.30-dev
+## Active Feature Pass — 0.1.31-dev
 
 ### Requested behaviour
 - Installing VendorTweaks means VendorTweaks owns pfUI grey auto-selling; there is no separate takeover checkbox.
@@ -54,10 +59,10 @@
 - Sell delay is user-configurable from `0.00` to `0.20` seconds.
 - The approved 8-frame Auto-Delete burn animation remains production behaviour and gets an `Animation Duration` slider from `0.20` to `1.00` seconds.
 - Chat feedback is independently configurable for Sell, Delete and Buy.
-- Auto-Buy maintains a configured actual item count in bags `0`–`4` when a merchant selling that item is opened.
-- Auto-Buy configuration is item-ID keyed. Each entry stores its desired bag count; cached name/icon/stack metadata remains presentation/defaulting data.
-- Dropping a new Auto-Buy item defaults its desired amount to one normal item stack when `GetItemInfo` supplies a stack size, otherwise `1`. The amount remains directly editable.
-- Merchant matching is by exact item ID. Merchant sale quantity/batch size from `GetMerchantItemInfo` must be respected so a purchase does not leave the requested target short merely because the merchant sells in lots.
+- Auto-Buy reserves a configured number of inventory stacks in bags `0`–`4` when a merchant selling that item is opened.
+- Auto-Buy configuration is item-ID keyed. Each entry stores its number of inventory stacks; maximum stock is `item stack size * configured inventory stacks`.
+- Dropping an item into Auto-Buy stages it without changing list ownership. The standalone `Inventory stacks` field defaults to `1` for a new item or the existing configured value for an item already in Auto-Buy. Pressing `Add` commits the entry and mutual-exclusion ownership change.
+- Merchant matching remains exact item ID. Auto-Buy purchases only whole merchant batches that fit without exceeding the configured inventory-stack ceiling; it intentionally does not round upward past that ceiling.
 - Auto-Buy counts bags only, not bank contents.
 - Auto-Vendor, Auto-Delete and Auto-Buy membership are mutually exclusive for the same item because simultaneous buy/sell/delete ownership would create contradictory merchant behaviour.
 - Do not add speculative buy throttling, confirmation systems, bank counting, restock categories, or unrelated vendor features in this pass.
@@ -65,16 +70,18 @@
 ### UI direction
 - Header controls: `Sell Delay` slider on the left (`0.00`–`0.20s`) and `Animation Duration` slider on the right (`0.20`–`1.00s`).
 - One compact `Chat Messages` row below them: `Sell [x]`, `Delete [x]`, `Buy [x]`.
-- Auto-Buy comes next at full width: one drop target followed by compact horizontal item-icon + maintain-quantity controls; entries may wrap when needed. Do not spend permanent row space on item names or stack-size labels.
+- Auto-Buy comes next at full width: drop target on the left, a standalone `Inventory stacks` numeric field plus `Add` underneath it, and the saved Auto-Buy icon area on the right.
+- Saved Auto-Buy entries are compact icon tiles with the configured inventory-stack count visibly attached to the icon; names remain available by hover rather than consuming row width.
 - Auto-Sell and Auto-Delete remain the lower two-column section, each with its drop target and scrollable item list.
-- Preserve pfUI styling, existing drop animation behaviour and the small editable Auto-Buy maximum/maintain quantity box.
+- Do not add the optional dynamic current/max label (for example `146/200`) yet; it remains a possible later presentation refinement after this gate.
 
 ### Validation gates
 - Real Lua 5.0.2 compile/static check before runtime handoff.
 - Runtime: existing Auto-Vendor and Auto-Delete regression sanity.
 - Runtime: burn animation at default plus at least one shorter and one longer configured duration.
-- Runtime: Auto-Buy with an item sold singly and an item sold in a merchant batch; test below-target, exactly-at-target, and above-target bag counts.
-- Runtime: verify a configured Auto-Buy item at one normal stack default can be edited to an arbitrary count and persists across reload.
+- Runtime: staged Auto-Buy drop, numeric typing, Add commit, icon-attached inventory-stack count, remove control and re-staging an existing entry for update.
+- Runtime: Auto-Buy with an item sold singly and an item sold in a merchant batch; verify purchases never exceed `item stack size * configured inventory stacks` and only whole fitting merchant batches are requested.
+- Runtime: verify configured inventory-stack counts persist across reload and any existing `0.1.30` Auto-Buy values migrate sensibly.
 - Runtime: confirm list exclusivity when moving the same item between Auto-Vendor, Auto-Delete and Auto-Buy.
 
 ## Performance Audit Findings
@@ -147,6 +154,9 @@ Post-P3 re-audit:
 - No further obvious recurring runtime cost is currently worth another optimization stage before user validation.
 
 ## Recent Relevant Commits
+- `f4854e17fe96b96c32e97ce7b5ff386743f2bfcb` — Remove the temporary Lua 5.0 checker after successful `0.1.31-dev` validation.
+- `336fd25e1ea2411c3a062360776c5cc919fabf25` — Temporary validation workflow commit; Actions run `36147804790` passed the canonical Lua 5.0.2 checker/self-test and all addon Lua files.
+- `38453ab5567e37e6b2b8224c5b9f98aa4f9eb81d` — Revise Auto-Buy around staged input and inventory-stack caps; bump to `0.1.31-dev`.
 - `83091ddabeb814c5a2ee43b0fb8199c765754c4f` — Remove the temporary Lua 5.0 checker after successful `0.1.30-dev` validation.
 - `e89d7cdbafe3328c2f7f6350fcc9b3888952d7f1` — Temporary validation workflow commit; Actions run `36075563299` passed the real Lua 5.0.2 checker/self-test and all 10 Lua files.
 - `d0e9ee613c2896d0ddc71268c77ff8737238e91e` — Bump the completed redesign build to `0.1.30-dev` and update TOC notes.
@@ -171,6 +181,7 @@ Post-P3 re-audit:
 - `a1c9b6daec6fd06b644a804b19d6490cb89babab` — Remove background icon-repair polling and begin 0.1.28-dev performance pass.
 
 ## Completed / User-Verified
+- Partial `0.1.30-dev` options checkpoint at the documented handoff runtime: the panel loaded and the overall redesigned layout was judged basically fine. The Auto-Buy inline quantity EditBox was not accepted: it gained focus/blinked but accepted no typed input. No other `0.1.30` runtime paths should be inferred as passed from this result.
 - P1 partial runtime checkpoint on `0.1.28-dev`: normal login, reload and zoning passed with no reported Lua errors.
 - P1 config/list/icon behaviour passed, including adding/removing Auto-Vendor and Auto-Delete entries and ordinary bag activity.
 - Auto-Vendor sanity passed on the P1 checkpoint.
@@ -189,12 +200,15 @@ Post-P3 re-audit:
 - Sell Delay is a `0.00`–`0.20s` slider; the active sell worker still caches the chosen delay for the queue.
 - The approved 8-frame Auto-Delete burn is always used for delete feedback and `Animation Duration` is a `0.20`–`1.00s` slider, default `1.00s`.
 - Chat Messages are independently controlled by Sell/Delete/Buy checkboxes; Buy chat reports the merchant item and requested purchase amount.
-- Auto-Buy maintain-stock remains item-ID keyed by desired actual bag count, counts bags 0-4 only, matches exact merchant item ID, and defaults a new item target from its normal item stack size when available.
-- Merchant batch handling is unchanged from `0.1.29-dev`: deficits are rounded up to the merchant-reported sale batch before `BuyMerchantItem`; this still requires target-client verification because historical 1.12-era quantity semantics are inconsistent.
+- `0.1.31-dev` Auto-Buy now stages a dropped item, provides one standalone numeric `Inventory stacks` EditBox with explicit font/keyboard/numeric setup, and commits only when `Add` or Enter is used.
+- Saved Auto-Buy entries no longer contain editable per-row EditBoxes. They render as compact icon tiles with the configured inventory-stack count attached to the icon; hover shows the item name and stack setting.
+- Auto-Buy values now mean inventory-stack counts. Maximum stock is the real item stack size multiplied by the configured stack count.
+- The old `0.1.30` upward batch rounding is replaced with downward fitting: only a whole merchant batch that fits at or below the configured ceiling is requested. Example: with stack size 100, two inventory stacks cap stock at 200; 181 or 199 on hand should not trigger another 20-item batch.
+- Existing unmarked `0.1.30` desired-count values migrate once to inventory-stack counts using cached/`GetItemInfo` stack metadata.
 - Merchant ordering remains sales first, then Auto-Buy, so selling can free bag space before restocking.
-- Auto-Sell, Auto-Delete and Auto-Buy ownership remains mutually exclusive per item; Auto-Buy ownership prevents both grey and explicit Auto-Sell of that item.
-- Options layout now matches the approved design: two header sliders, compact Chat Messages row, full-width Auto-Buy drop area with compact icon + quantity entries, then lower two-column Auto-Sell/Auto-Delete lists. Item names are available by hover instead of consuming Auto-Buy row width.
-- New user-facing strings are present in `enUS`; other locales continue to use the existing enUS fallback for the new keys.
+- Auto-Sell, Auto-Delete and Auto-Buy ownership remains mutually exclusive per item after `Add` commits a staged Auto-Buy entry.
+- The remaining `0.1.30-dev` options/list/chat/burn work is unchanged and remains awaiting its uncompleted runtime validation.
+- New `Inventory stacks` and `Add` strings are present in `enUS`; other locales continue to use the existing enUS fallback for the new keys.
 
 ## Static / Automated Checks
 - P1 and P2 passed their documented static reviews and Lua 5.0.2 checks.
@@ -213,48 +227,50 @@ Post-P3 re-audit:
 - Commit `164ec4bf1e86d6cb3f3c2e459cef87c97f7ee848` isolated Auto-Buy list refresh into its own narrow closure rather than globalizing state or weakening the checker.
 - Follow-up run `36073598287` passed the real Lua 5.0.2 checker self-test and compiled `pfUI_VendorTweaks.lua`, `Debug.lua`, and all locale Lua files.
 - The temporary checker workflow was removed immediately afterward; current `dev` contains no validation-only workflow.
-- `0.1.30-dev` validation run `36075563299` passed the real Lua 5.0.2 checker self-test and compiled all 10 addon Lua files. The validated runtime Lua blob is `203aa3a77661ce97e0288ecb2372681151c3c93d` and is unchanged on current `dev`.
+- `0.1.30-dev` validation run `36075563299` passed the real Lua 5.0.2 checker self-test and compiled all 10 addon Lua files.
+- Exact `0.1.31-dev` runtime diff at `38453ab5567e37e6b2b8224c5b9f98aa4f9eb81d` was reviewed after implementation; it changes only the TOC version, enUS labels, Auto-Buy SavedVariables semantics/migration, Auto-Buy merchant cap calculation, and the Auto-Buy configuration UI.
+- `0.1.31-dev` validation run `36147804790` passed the canonical Lua 5.0.2 checker self-test and compiled `pfUI_VendorTweaks.lua`, `Debug.lua`, and all locale Lua files. The validated runtime Lua blob is `ed57167b86603600f7625f887eec67121a69936e`.
+- The temporary `0.1.31` checker workflow was removed immediately afterward; current `dev` contains no validation-only workflow and the validated runtime Lua blob is unchanged.
 
 ## Current Issues
 - No current static or compiler regression is known.
-- The entire `0.1.30-dev` runtime delta remains untested in-game; the inherited Auto-Buy/burn work from `0.1.29-dev` was also never runtime-tested before this redesign.
-- Batched merchant purchasing remains the highest-priority runtime check: `GetMerchantItemInfo` exposes a batch quantity, while historical 1.12-era documentation for `BuyMerchantItem(index, quantity)` is inconsistent about stack-vs-unit semantics. Do not promote until an actual batched reagent is verified.
-- The redesigned option spacing/clickability, compact Auto-Buy icon/quantity rows, tooltip/remove control, and both sliders require target-client validation.
-- Buy chat currently reports the amount requested from `BuyMerchantItem`; runtime batch validation will determine whether that message corresponds cleanly to actual units received on the target client.
+- The `0.1.30-dev` options panel received only partial runtime validation. Its overall layout was acceptable, but the inline Auto-Buy quantity input failed; `0.1.31-dev` replaces that interaction and is not yet runtime-tested.
+- Batched merchant purchasing remains the highest-priority runtime check: `GetMerchantItemInfo` exposes a batch quantity, while historical 1.12-era documentation for `BuyMerchantItem(index, quantity)` is inconsistent about stack-vs-unit semantics. Do not promote until an actual batched reagent is verified with the new no-overflow ceiling.
+- The staged drop icon, standalone Inventory-stacks field, Add button, compact four-column Auto-Buy tiles/count badges, remove control, migration, and persistence require target-client validation.
+- Buy chat still reports the amount requested from `BuyMerchantItem`; runtime batch validation must compare that amount with actual units received on the target client.
 - Historical validation note: the occupied-cursor P1 edge case was not deliberately reproduced because the 0.20-second timing window is impractical to hit manually; no related regression was observed during natural play.
 
 ## Testing
 
 ### Last Runtime Test
-- Version/runtime source: `0.1.28-dev` runtime tree at `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`.
-- Result: user reports the addon appears to be working as expected during natural play.
-- No Lua errors, missed/unintended actions, visual regressions, stuck workers, or performance symptoms were reported.
-- The stable `0.1.28` release at `9df26d5606bcfecae59d22227219fe6d939bfe94` inherits this runtime validation because its runtime Lua blob is byte-identical to the tested source; promotion changed only stable TOC metadata and removed dev-only material.
+- Version/runtime source: `0.1.30-dev` documented handoff at `932a35632eca5def6983b211db881ebfa6ecf4d9` (runtime Lua blob `203aa3a77661ce97e0288ecb2372681151c3c93d`).
+- Result: options opened successfully and the user judged the overall layout basically fine.
+- Demonstrated issue: the Auto-Buy inline quantity field gained focus/blinked but accepted no typed input.
+- This was a partial configuration test only; grey selling, Auto-Delete/burn controls, chat toggles, Auto-Buy purchasing/batching, list exclusivity and ordering remain unaccepted until separately exercised.
 
 ### Next Runtime Test
-Use the exact current `0.1.30-dev` handoff build and verify:
-1. Addon loads with no Lua errors; open VendorTweaks options and confirm the new layout is aligned, readable and fully clickable: Sell Delay + Animation Duration, one Chat Messages row, compact Auto-Buy, then Auto-Sell/Auto-Delete columns.
-2. Grey selling: with VendorTweaks installed, open a merchant with grey items and confirm VendorTweaks performs the grey sale without any takeover checkbox. Also confirm an explicit Auto-Sell-list item sells in the same visit.
-3. Sell Delay: test near both ends (`0.00` and `0.20`) and confirm the visible selling cadence changes and the selected value persists after reload.
-4. Auto-Delete: drag an item into Auto-Delete, self-loot it, confirm deletion still occurs, and verify Animation Duration at `0.20`, a middle value, and `1.00`; reload and confirm persistence.
-5. Chat Messages: independently toggle Sell, Delete and Buy and confirm only the corresponding message is suppressed/restored.
-6. Auto-Buy single-unit merchant item: drag it into Auto-Buy, confirm the compact icon + small quantity box appears, hover identifies the item, the default target matches one normal item stack when metadata is available, and an arbitrary edited target persists.
-7. For that single-unit item, test below-target, exactly-at-target and above-target bag counts; only below-target should purchase.
-8. Auto-Buy batched reagent/vendor item: verify the resulting actual bag count reaches at least the configured maintain target without multiplying the purchase incorrectly, and compare the Buy chat amount with the actual units received.
-9. Move the same item Auto-Buy -> Auto-Sell -> Auto-Delete (or equivalent) and confirm only the newest list retains it; confirm the compact Auto-Buy remove control also removes an entry.
-10. With selling and Auto-Buy configured at the same merchant, confirm selling finishes before restocking and an Auto-Buy-owned item is never sold.
+Use the exact current `0.1.31-dev` build and verify the corrected Auto-Buy path first:
+1. Addon/options load with no Lua errors and the overall layout remains acceptable.
+2. Drag an item onto Auto-Buy: it should stage in the left drop slot only, show `Inventory stacks` below, and not enter the saved Auto-Buy window until `Add` is pressed.
+3. Confirm the standalone field actually accepts typed digits. Enter `2`, press `Add`, and confirm the item moves into the saved window with `2` clearly attached to its icon; hover should identify the item and stack setting.
+4. Re-stage that existing item, confirm the field starts at its saved value, change it, press `Add`, reload, and confirm the new inventory-stack count persists. Confirm the remove control removes the entry.
+5. If a `0.1.30` Auto-Buy entry already exists, confirm its old desired-count value migrated sensibly to inventory stacks rather than becoming an enormous stack count.
+6. Test a batched reagent such as Symbol of Kings. With item stack size 100 and `Inventory stacks = 2`, Auto-Buy must never request a purchase that would take the actual bag count above 200. Whole 20-item merchant batches that fit are allowed; a remainder smaller than one batch is intentionally left unfilled.
+7. Compare the Buy chat amount with the actual units received, because target-client `BuyMerchantItem(index, quantity)` quantity semantics remain the highest-risk unknown.
+8. Then continue the still-open `0.1.30` regression checks: grey + explicit Auto-Sell, Sell Delay persistence, Auto-Delete/burn durations, independent Sell/Delete/Buy chat toggles, list exclusivity, and selling-before-restocking ordering.
 
 ## Planned / Next Work
-- Stop code changes at the `0.1.30-dev` runtime-validation gate.
-- Use user runtime results to correct only demonstrated issues in the new delta.
-- Do not promote, translate additional locales, or broaden merchant behavior before the streamlined UI and Auto-Buy/batch behavior are user-accepted.
+- Stop code changes at the `0.1.31-dev` runtime-validation gate.
+- Use user runtime results to correct only demonstrated issues in the staged Auto-Buy/input/inventory-stack delta or the still-open `0.1.30` feature gate.
+- Do not promote, translate additional locales, add the optional current/max label, or broaden merchant behavior before the Auto-Buy/batch behavior and remaining feature checks are user-accepted.
 
 ## Deferred / Out of Scope
 - Longer/higher-frame/two-part burn replacement remains shelved.
 - Buyback-specific Auto-Delete exemption remains deferred because stock 1.12 buyback API lacks an exact item link/ID; do not substitute heuristic matching.
 - Do not redesign features merely to optimize raid-only behaviour; changes should reduce general background cost while preserving functionality.
 - Do not add ClassicAPI or another DLL dependency solely for this performance pass unless a concrete measured limitation of the native 1.12.1 API requires it and the dependency is explicitly reconsidered.
-- Translating the new `0.1.30` strings into non-English locale files is deferred; functional fallback remains enUS.
+- Translating the new `0.1.31` strings into non-English locale files is deferred; functional fallback remains enUS.
+- A dynamic Auto-Buy current/max presentation such as `146/200` beneath saved icons is explicitly deferred until after the current runtime gate; do not add it during validation.
 
 ## Release / Promotion Notes
 - Current stable release is `0.1.28` on `main` at `9df26d5606bcfecae59d22227219fe6d939bfe94`.
@@ -266,4 +282,4 @@ Use the exact current `0.1.30-dev` handoff build and verify:
 - External/runtime prerequisites remain World of Warcraft 1.12.1 and pfUI; no optional DLL/client extension is required.
 
 ## Exact Next Step
-User runtime-test the exact `0.1.30-dev` handoff build using the "Next Runtime Test" sequence above. First priority is options/load sanity and the compact Auto-Buy controls; highest-risk behavior remains batched merchant purchasing. Do not promote or broaden scope before those results.
+User runtime-test the exact `0.1.31-dev` build using the "Next Runtime Test" sequence above. First priority is the staged Auto-Buy field/Add/count-badge interaction; highest-risk behavior remains batched reagent purchasing under the new hard inventory-stack ceiling. Do not promote or broaden scope before those results.
