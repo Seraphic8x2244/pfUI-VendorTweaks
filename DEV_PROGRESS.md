@@ -207,6 +207,8 @@ Post-P3 re-audit:
 - `a1c9b6daec6fd06b644a804b19d6490cb89babab` — Remove background icon-repair polling and begin 0.1.28-dev performance pass.
 
 ## Completed / User-Verified
+- `0.1.34-dev` styling gate is user-accepted from runtime: teal AUTO-BUY/AUTO-SELL/AUTO-DELETE headers, silver Sell/Delete/Buy option labels, bounded 1px rules and unchanged vertical layout all look correct.
+- `0.1.34-dev` release smoke: ordinary selling works, Sell Delay survives reload, Auto-Delete works, independent chat messages work, and combined sell -> Auto-Buy merchant ordering works.
 - `0.1.33-dev` Auto-Buy blank/manual `No more than` input, disabled/grey Add state, invalid red text, one-row saved-items strip and overall layout were reported by the user as working; the layout feels good.
 - `0.1.32-dev` Auto-Buy hard actual-count ceiling and corrected vendor-batch purchase behaviour were explicitly reported by the user as working; no further purchase-engine change is requested in `0.1.33`.
 - `0.1.31-dev` staged Auto-Buy text input accepted typed numbers in-game. The field was hard to discover while empty because no visible background rectangle was present; this is corrected in `0.1.32-dev`.
@@ -279,29 +281,28 @@ Post-P3 re-audit:
 ## Current Issues
 - No current static or compiler regression is known.
 - No current Auto-Buy purchase-engine or configuration-layout issue is reported on the tested `0.1.33-dev` runtime; the user explicitly reports all tested behaviour works and the layout feels good.
-- `0.1.34-dev` is styling-only and still needs target-client visual validation of teal headers, silver chat-option labels, and correctly bounded 1px rules.
+- `0.1.34-dev` styling and the main release smoke paths are user-accepted.
+- The only remaining untested release item is whether changing the Animation Duration slider visibly changes burn speed. The burn itself is already user-verified; the user is currently not in a position to exercise the duration variation.
 - The temporary `0.1.31` Auto-Buy list is intentionally discarded on first `0.1.32+` load; this is expected, not a persistence regression. Current `max_count` entries remain compatible and are not reset by `0.1.33`.
 - Historical validation note: the occupied-cursor P1 edge case was not deliberately reproduced because the 0.20-second timing window is impractical to hit manually; no related regression was observed during natural play.
 
 ## Testing
 
 ### Last Runtime Test
-- Version/runtime source: `0.1.33-dev` handoff at `15064000fa0811a4c6975b411b946ef08ed18c69` (runtime Lua blob `c1d4d11e901389490199145b19ab2ffbcf7dcfc1`).
-- Result: user reports all tested behaviour works and the layout feels good.
-- Requested follow-up is visual hierarchy only: teal functional section headers, silver Sell/Delete/Buy option labels, and subtle right-extending 1px section rules without adding vertical size.
+- Version/runtime source: `0.1.34-dev` handoff at `c6bfd889a577524bb05e6c1937074ce085dfbb95` (runtime Lua blob `25f2dc0025ad56ed4c9a41c58ea94a6226d9920b`).
+- Result: styling looks correct; selling works; Sell Delay survives reload; Auto-Delete works; chat messages work; combined sell + Auto-Buy queue ordering works.
+- Remaining untested item: changing Animation Duration and confirming the burn speed changes. The user cannot currently exercise this test.
 
 ### Next Runtime Test
-Use the exact current `0.1.34-dev` build and verify the styling-only delta:
-1. Confirm AUTO-BUY, AUTO-SELL and AUTO-DELETE are pfUI teal.
-2. Confirm Sell/Delete/Buy checkbox labels are silver/neutral while Chat Messages stays gold.
-3. Confirm each teal heading has a subtle 1px rule beginning just after the text.
-4. Confirm AUTO-BUY's rule ends at the full-width section edge; AUTO-SELL's rule stops before the centre gutter; AUTO-DELETE has its own right-column rule.
-5. Confirm no extra vertical height, overlap or change to the already accepted `0.1.33` behaviour/layout.
+- No further mandatory broad runtime pass is planned.
+- Optional remaining check when convenient: change Animation Duration away from 1.00s (for example 0.20s), trigger one configured Auto-Delete, and confirm the burn is visibly faster.
+- If promotion proceeds before that check, record the duration-control path as explicit accepted validation debt; the burn itself and all other current release smoke paths are user-verified.
 
 ## Planned / Next Work
-- Stop code changes at the `0.1.34-dev` runtime-validation gate.
-- Use user runtime results to correct only demonstrated issues in the new visual-hierarchy styling.
-- Do not alter the accepted `0.1.33` behaviour/layout, promote, translate additional locales, add the optional current/max label, or broaden merchant behavior before this styling delta is user-accepted.
+- Stop feature/code changes on dev.
+- The current `0.1.34-dev` runtime is accepted for all exercised release paths.
+- Promotion may proceed once the user chooses to accept the untested Animation Duration variation as validation debt; otherwise wait for that single optional check.
+- Do not alter the accepted runtime, add features, translate additional locales, add the optional current/max label, or broaden merchant behavior before promotion.
 
 ## Deferred / Out of Scope
 - Longer/higher-frame/two-part burn replacement remains shelved.
@@ -321,4 +322,4 @@ Use the exact current `0.1.34-dev` build and verify the styling-only delta:
 - External/runtime prerequisites remain World of Warcraft 1.12.1 and pfUI; no optional DLL/client extension is required.
 
 ## Exact Next Step
-User runtime-test the exact `0.1.34-dev` build using the "Next Runtime Test" sequence above. This is a styling-only gate: teal functional section headers, silver chat-option labels and correctly bounded 1px rules. The accepted `0.1.33` behaviour/layout is intentionally unchanged. Do not promote or broaden scope before those results.
+Decide whether to accept the untested Animation Duration variation as explicit validation debt. If accepted, compare the exact accepted `0.1.34-dev` runtime against stable `main`, then promote that runtime to stable `0.1.34` with dev-only material removed and run the canonical stable-file-set Lua 5.0.2 validation before publishing. Do not introduce further runtime changes during promotion.
