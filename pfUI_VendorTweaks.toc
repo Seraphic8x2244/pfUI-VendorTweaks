@@ -1,7 +1,7 @@
 ## Interface: 11200
 ## Title: |cff33ffccpf|cffffffffUI|cffaaaaaa VendorTweaks-dev|r
 ## Notes: pfUI grey-selling takeover with list-driven Auto-Sell, Auto-Delete and Auto-Buy.
-## Version: 0.1.33-dev
+## Version: 0.1.34-dev
 ## Dependencies: pfUI
 ## SavedVariablesPerCharacter: pfUI_VendorTweaks
 

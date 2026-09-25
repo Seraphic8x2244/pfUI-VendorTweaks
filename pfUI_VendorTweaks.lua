@@ -1098,6 +1098,12 @@ local function BuildComponentsPanel(parent)
   showBuyChat:ClearAllPoints()
   showBuyChat:SetPoint("LEFT", showDeleteChat.label, "RIGHT", 20, 0)
 
+  -- Keep the Chat Messages heading in the existing gold hierarchy while the
+  -- individual options read as neutral/silver subordinate controls.
+  showSellChat.label:SetTextColor(.75, .75, .75, 1)
+  showDeleteChat.label:SetTextColor(.75, .75, .75, 1)
+  showBuyChat.label:SetTextColor(.75, .75, .75, 1)
+
   local function SetDropHighlight(frame, shown)
     if not frame or not frame.goldBorder then return end
     for _, tex in ipairs(frame.goldBorder) do
@@ -1191,9 +1197,26 @@ local function BuildComponentsPanel(parent)
     return scroll, child
   end
 
+  local function StyleSectionHeader(header, sectionWidth)
+    -- Match pfUI's native config-header teal without adopting its automatic
+    -- header widget spacing. The 1px rule stays inside this section's width.
+    header:SetTextColor(.2, 1, .8, 1)
+
+    local rule = parent:CreateTexture(nil, "ARTWORK")
+    rule:SetHeight(1)
+    rule:SetTexture(.2, 1, .8, .35)
+    rule:SetPoint("LEFT", header, "RIGHT", 7, 0)
+
+    local width = sectionWidth - header:GetStringWidth() - 7
+    if width < 1 then width = 1 end
+    rule:SetWidth(width)
+    return rule
+  end
+
   local autoBuyHeader = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   autoBuyHeader:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -122)
   autoBuyHeader:SetText(T_("VT_AUTO_BUY_HEADER"))
+  StyleSectionHeader(autoBuyHeader, 415)
 
   local buyDrop = MakeDropSlot(autoBuyHeader, T_("VT_DROP_BUY"))
   local stagedBuy = nil
@@ -1313,10 +1336,12 @@ local function BuildComponentsPanel(parent)
   local autoSellHeader = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   autoSellHeader:SetPoint("TOPLEFT", buyScroll, "BOTTOMLEFT", 0, -11)
   autoSellHeader:SetText(T_("VT_AUTO_SELL_HEADER"))
+  StyleSectionHeader(autoSellHeader, 195)
 
   local autoDeleteHeader = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   autoDeleteHeader:SetPoint("TOPLEFT", autoSellHeader, "TOPLEFT", 220, 0)
   autoDeleteHeader:SetText(T_("VT_AUTO_DELETE_HEADER"))
+  StyleSectionHeader(autoDeleteHeader, 195)
 
   local vendorDrop = MakeDropSlot(autoSellHeader, T_("VT_DROP_SELL"))
   local deleteDrop = MakeDropSlot(autoDeleteHeader, T_("VT_DROP_DELETE"))
