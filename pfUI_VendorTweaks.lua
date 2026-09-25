@@ -301,7 +301,7 @@ end
 
 -- -----------------------------------------------------------------------------
 -- Shared throttled vendor engine
--- Both grey takeover and Auto-Vendor feed this one queue. Auto-Buy runs only
+-- Grey selling and the explicit Auto-Sell list feed this one queue. Auto-Buy runs only
 -- after this queue finishes so selling can free bag space first.
 -- -----------------------------------------------------------------------------
 local sellQueue = {}
@@ -1013,27 +1013,6 @@ local function BuildComponentsPanel(parent)
     return cb
   end
 
-  local function MakeDisabledCheckbox(anchor, y, text)
-    local cb = CreateFrame("CheckButton", nil, parent)
-    cb:SetWidth(20)
-    cb:SetHeight(20)
-    cb:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, y)
-    if pfUI.api and pfUI.api.SkinCheckbox then pfUI.api.SkinCheckbox(cb) end
-    AttachCheckboxMark(cb)
-
-    local label = cb:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    label:SetPoint("LEFT", cb, "RIGHT", 5, 0)
-    label:SetText(text)
-    cb.label = label
-
-    cb:SetChecked(false)
-    UpdateCheckboxMark(cb)
-    cb:Disable()
-    cb:SetAlpha(.5)
-
-    return cb
-  end
-
   local sellDelayLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   sellDelayLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -42)
   sellDelayLabel:SetText(T_("VT_SELL_DELAY"))
@@ -1392,6 +1371,7 @@ local function BuildComponentsPanel(parent)
     for _, entry in ipairs(rows) do
       i = i + 1
       local idKey = entry.id
+      local displayText = entry.display
       local row = buyPool[i] or MakeBuyRow(buyPool, buyChild)
 
       local col = math.mod(i - 1, 2)
@@ -1403,7 +1383,7 @@ local function BuildComponentsPanel(parent)
 
       row:SetScript("OnEnter", function()
         GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-        GameTooltip:SetText(entry.display or string.format(T_("VT_ID"), idKey), 1, 1, 1)
+        GameTooltip:SetText(displayText or string.format(T_("VT_ID"), idKey), 1, 1, 1)
         GameTooltip:Show()
       end)
       row:SetScript("OnLeave", function()
