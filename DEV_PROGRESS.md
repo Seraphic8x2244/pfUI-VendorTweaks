@@ -2,7 +2,7 @@
 
 ## Current
 - Branch: `dev`
-- Dev version: `0.1.33-dev`.
+- Dev version: `0.1.34-dev`.
 - Stable release: `0.1.28` on `main` at `9df26d5606bcfecae59d22227219fe6d939bfe94`.
 - User-tested runtime source: `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`; the stable release uses the exact same `pfUI_VendorTweaks.lua` blob (`d4011262f648fe98bcf78be37640cbce249d6e6b`) with stable TOC metadata and dev-only material removed.
 - Release-facing P3 runtime commit: `50efdff8f24001010b087abdf817da86a669646a`.
@@ -13,11 +13,12 @@
 - `0.1.30-dev` runtime-validation handoff: `932a35632eca5def6983b211db881ebfa6ecf4d9`; later commits before the user's test changed development documentation only.
 - `0.1.31-dev` runtime commit: `38453ab5567e37e6b2b8224c5b9f98aa4f9eb81d`; its staged input worked in-game but the inventory-stack model and batched purchase call were rejected by runtime testing.
 - `0.1.32-dev` runtime commit: `83f2f5cb9ad241de850c81f43e78e764673e779e`; handoff head `437594b661f395ea8545b283973651b60a352721`; runtime Lua blob `719628956e859747cc9473e57d6013b8a6dfdb94`. User explicitly reported the corrected Auto-Buy behaviour works.
-- `0.1.33-dev` runtime commit: `3816e1a0800e638f22b71e92df7f658a09bbea4f`.
-- Lua-validated `0.1.33-dev` tree: `0a7cc06b5a0aa428d39bed7e3abece6d8274bc4e`; Actions run `36160817841` passed the canonical Lua 5.0.2 checker/self-test and all addon Lua files. Current runtime Lua is the exact validated blob `c1d4d11e901389490199145b19ab2ffbcf7dcfc1`.
-- Current pre-handoff dev head: `35ddeab61d1dd141a33c4a2edd112b828c162e50`; the only post-validation change removed the temporary checker workflow.
-- Mode: runtime-validation gate for the focused `0.1.33-dev` Auto-Buy input-state and one-row saved-items layout refinement.
-- Current scope: user-test only the new Auto-Buy UI interaction/layout delta; the accepted `0.1.32` purchase semantics remain unchanged. Do not promote or broaden scope.
+- `0.1.33-dev` runtime commit: `3816e1a0800e638f22b71e92df7f658a09bbea4f`; handoff head `15064000fa0811a4c6975b411b946ef08ed18c69`; runtime Lua blob `c1d4d11e901389490199145b19ab2ffbcf7dcfc1`. User reported all tested behaviour works and the layout feels good.
+- `0.1.34-dev` runtime commit: `716bb6940c35cc75fcaeb530915a7cb6741290b1`.
+- Lua-validated `0.1.34-dev` tree: `ae3aed92a4097a32ac1a3f150f63b501be1dbe53`; Actions run `36165705057` passed the canonical Lua 5.0.2 checker/self-test and all addon Lua files. Current runtime Lua is the exact validated blob `25f2dc0025ad56ed4c9a41c58ea94a6226d9920b`.
+- Current pre-handoff dev head: `47ca7cea444519e2b55356bb9a9469768491f6e1`; the only post-validation change removed the temporary checker workflow.
+- Mode: runtime-validation gate for the focused `0.1.34-dev` settings visual-hierarchy refinement.
+- Current scope: user-test only the new header/label/rule styling. All accepted `0.1.33` behaviour remains unchanged. Do not promote or broaden scope.
 
 ## Current Design / Development Contract
 
@@ -31,7 +32,7 @@
 
 ### Invariants
 - Technical addon/folder/metadata identity is `pfUI_VendorTweaks`; stale hyphenated `pfUI-VendorTweaks.toc/.lua` files from older installs must not be used.
-- The addon version comes from the TOC. Current development is `0.1.33-dev`; it inherits the accepted `0.1.28` runtime baseline plus the user-accepted `0.1.32-dev` Auto-Buy hard-count/vendor-batch behaviour, and changes only the Auto-Buy configuration interaction/layout.
+- The addon version comes from the TOC. Current development is `0.1.34-dev`; it inherits the accepted `0.1.28` runtime baseline plus the user-accepted `0.1.33-dev` Auto-Buy behaviour/layout and changes only settings-panel visual hierarchy.
 - The approved production Auto-Delete feedback remains the existing single 8-frame strip `artwork/pfUI_VendorTweaks_Burn.tga`, with `BIN_FRAME_COUNT = 8` and approximately 1.0 second default runtime.
 - Debug controls may tune/preview the existing animation but must not become a stable runtime dependency.
 - Do not introduce heuristic buyback matching: stock 1.12 buyback API does not expose an exact item link/ID suitable for a reliable Auto-Delete exemption.
@@ -53,13 +54,16 @@
 - User runtime feedback accepts the `0.1.32` hard actual-count ceiling and vendor-batch purchase behaviour as working. `0.1.33` must not alter that purchase engine.
 - `0.1.33` deliberately never auto-populates the `No more than` field. The player supplies the number. Empty input keeps `Add` disabled/grey; a non-empty invalid string turns red and also leaves `Add` disabled; a valid positive integer plus a staged item enables `Add`.
 - The saved Auto-Buy area is now one icon-high full-width strip below the configuration row. Entries never wrap vertically; overflow scrolls horizontally with the mouse wheel.
+- User runtime feedback accepts the complete `0.1.33` Auto-Buy interaction/layout as working and visually good.
+- `0.1.34` adds visual hierarchy without adding vertical height: AUTO-BUY/AUTO-SELL/AUTO-DELETE use pfUI's native teal header colour, each has a subtle 1px teal rule extending right, and Sell/Delete/Buy checkbox labels are neutral silver while Chat Messages remains gold.
+- AUTO-SELL and AUTO-DELETE rules are independently constrained to their own 195px columns; the left rule must not run into the right column.
 - Runtime evidence distinguishes vendor batch size from inventory stack size. Auto-Buy therefore uses `GetMerchantItemInfo` batch quantity for purchasing and does not use inventory max stack size to determine the user's ceiling.
 - The performance audit should prioritize removing recurring idle/background work over micro-optimizing one-shot configuration or merchant operations.
 - Preserve event-driven ownership: temporary workers may run while a real operation is active, but they should become fully dormant when no work is pending.
 - The longer/higher-frame/two-part Fire/Ash burn replacement remains shelved; the restored 8-frame implementation is the approved production state.
 - Current branding remains `pfUI VendorTweaks`. The old feature-enable and animation-enable checkbox layout is superseded by the user-approved streamlined controls in this pass.
 
-## Active Feature Pass — 0.1.33-dev
+## Active Feature Pass — 0.1.34-dev
 
 ### Requested behaviour
 - Installing VendorTweaks means VendorTweaks owns pfUI grey auto-selling; there is no separate takeover checkbox.
@@ -71,7 +75,7 @@
 - Auto-Buy configuration is item-ID keyed. Each entry stores its `No more than` count directly.
 - Dropping an item into Auto-Buy stages it without changing list ownership. The standalone `No more than` field is never auto-filled; the player must type the desired hard item-count ceiling. Pressing enabled `Add` commits the entry and mutual-exclusion ownership change.
 - Merchant matching remains exact item ID. `GetMerchantItemInfo` quantity is treated as vendor batch size, and Auto-Buy buys only whole batches that fit without exceeding the configured maximum.
-- For singly sold goods (`batchSize == 1`), the quantity argument is used directly. For batched goods, the accepted `0.1.32` engine deliberately avoids the historically ambiguous second argument to `BuyMerchantItem` and issues one no-quantity call per required vendor batch; `0.1.33` leaves this logic unchanged.
+- For singly sold goods (`batchSize == 1`), the quantity argument is used directly. For batched goods, the accepted `0.1.32` engine deliberately avoids the historically ambiguous second argument to `BuyMerchantItem` and issues one no-quantity call per required vendor batch; `0.1.34` leaves this logic unchanged.
 - Buy chat reports the requested number of actual item units, not the number of vendor-batch API calls.
 - Auto-Buy counts bags only, not bank contents.
 - Auto-Vendor, Auto-Delete and Auto-Buy membership are mutually exclusive for the same item because simultaneous buy/sell/delete ownership would create contradictory merchant behaviour.
@@ -85,18 +89,20 @@
 - `Add` is disabled with grey text unless both a staged item and a valid positive integer are present; valid input restores the normal active Add appearance.
 - Saved Auto-Buy entries occupy one full-width box immediately below that row, exactly one icon row high. Entries are compact icon tiles with the configured maximum count attached; they never wrap vertically, and overflow scrolls horizontally with the mouse wheel.
 - Auto-Sell and Auto-Delete remain the lower two-column section, each with its drop target and scrollable item list.
+- AUTO-BUY, AUTO-SELL and AUTO-DELETE headings use pfUI native header teal (`.2, 1, .8`) rather than gold.
+- Each teal heading has a subtle 1px teal rule beginning 7px after the text. AUTO-BUY's rule stays inside the 415px full-width section; AUTO-SELL and AUTO-DELETE each stay inside their own 195px column.
+- The Sell/Delete/Buy chat checkbox labels are silver/neutral (`.75, .75, .75`); the Chat Messages heading remains gold.
 - Do not add the optional dynamic current/max label (for example `146/200`) yet; it remains a possible later presentation refinement after this gate.
 
 ### Validation gates
 - Real Lua 5.0.2 compile/static check before runtime handoff.
 - Runtime: existing Auto-Vendor and Auto-Delete regression sanity.
 - Runtime: burn animation at default plus at least one shorter and one longer configured duration.
-- Runtime: Auto-Buy top row alignment should match the approved layout: drop target/label on the left and `No more than [ ] [Add]` on the same line to the right.
-- Runtime: staging an item must not insert any number into `No more than`; re-staging an existing saved entry must also leave the field unpopulated by the addon.
-- Runtime: with no value, `Add` stays disabled/grey. A valid positive integer enables `Add` only when an item is staged. A non-empty invalid string (letters, decimal, sign, zero, etc.) renders red and leaves `Add` disabled.
-- Runtime: pressing enabled `Add` commits the saved max count, clears the input, and places/updates the icon in the one-row saved-items box.
-- Runtime: saved items remain a single icon row. Add enough entries to overflow the width and confirm mouse-wheel horizontal scrolling reveals the hidden items without increasing box height.
-- Runtime: quick regression sanity that the already accepted `0.1.32` purchase behaviour is unchanged.
+- Runtime: confirm AUTO-BUY/AUTO-SELL/AUTO-DELETE headings render in pfUI teal and are visually distinct from the gold page/control headings.
+- Runtime: confirm each heading has a subtle 1px rule extending right with a small text gap.
+- Runtime: AUTO-BUY rule should terminate at the full-width section edge; AUTO-SELL's rule must stop inside the left column and never extend into AUTO-DELETE; AUTO-DELETE has its own independent right-column rule.
+- Runtime: confirm Sell/Delete/Buy checkbox labels are silver/neutral while Chat Messages remains gold.
+- Runtime: no vertical growth, overlap or regression in the accepted `0.1.33` layout/behaviour.
 
 ## Performance Audit Findings
 
@@ -201,6 +207,7 @@ Post-P3 re-audit:
 - `a1c9b6daec6fd06b644a804b19d6490cb89babab` — Remove background icon-repair polling and begin 0.1.28-dev performance pass.
 
 ## Completed / User-Verified
+- `0.1.33-dev` Auto-Buy blank/manual `No more than` input, disabled/grey Add state, invalid red text, one-row saved-items strip and overall layout were reported by the user as working; the layout feels good.
 - `0.1.32-dev` Auto-Buy hard actual-count ceiling and corrected vendor-batch purchase behaviour were explicitly reported by the user as working; no further purchase-engine change is requested in `0.1.33`.
 - `0.1.31-dev` staged Auto-Buy text input accepted typed numbers in-game. The field was hard to discover while empty because no visible background rectangle was present; this is corrected in `0.1.32-dev`.
 - `0.1.31-dev` Symbol of Divinity test: 3 held, user entered 5, addon bought 2, Buy chat reported x2 and final count was 5.
@@ -225,7 +232,9 @@ Post-P3 re-audit:
 - Sell Delay is a `0.00`–`0.20s` slider; the active sell worker still caches the chosen delay for the queue.
 - The approved 8-frame Auto-Delete burn is always used for delete feedback and `Animation Duration` is a `0.20`–`1.00s` slider, default `1.00s`.
 - Chat Messages are independently controlled by Sell/Delete/Buy checkboxes; Buy chat reports the merchant item and requested purchase amount.
-- The accepted `0.1.32-dev` staged Auto-Buy/hard-count purchase engine is unchanged.
+- The accepted `0.1.33-dev` Auto-Buy behaviour/layout is unchanged in `0.1.34`.
+- `0.1.34-dev` changes only visual hierarchy: three functional section headings use pfUI teal, each gets a subtle 1px right-extending rule, and the three chat option labels use silver/neutral text.
+- AUTO-BUY's rule is bounded to the 415px full-width section; AUTO-SELL and AUTO-DELETE each use separate 195px rule bounds so the left rule cannot cross the centre gutter.
 - `0.1.33-dev` never auto-fills the `No more than` field and removes the numeric-only input restriction so invalid strings can be shown explicitly rather than silently blocked.
 - Input validation is live: empty remains neutral; non-empty invalid text turns red; valid positive integer text is normal.
 - `Add` is a real disabled Button with grey text until a staged item and valid positive integer are both present; it re-enables with normal text only when the configuration is commit-ready.
@@ -263,36 +272,36 @@ Post-P3 re-audit:
 - `0.1.32-dev` validation run `36157287265` passed the canonical Lua 5.0.2 checker self-test and compiled `pfUI_VendorTweaks.lua`, `Debug.lua`, and all locale Lua files. The validated runtime Lua blob is `719628956e859747cc9473e57d6013b8a6dfdb94`.
 - Exact `0.1.33-dev` runtime diff at `3816e1a0800e638f22b71e92df7f658a09bbea4f` was reviewed after implementation; it changes only Auto-Buy configuration input state/layout and TOC version. The `0.1.32` merchant purchase engine and SavedVariables representation are unchanged.
 - `0.1.33-dev` validation run `36160817841` passed the canonical Lua 5.0.2 checker self-test and compiled `pfUI_VendorTweaks.lua`, `Debug.lua`, and all locale Lua files. The validated runtime Lua blob is `c1d4d11e901389490199145b19ab2ffbcf7dcfc1`.
-- The temporary `0.1.33` checker workflow was removed immediately afterward; current `dev` contains no validation-only workflow and the validated runtime Lua blob is unchanged.
+- Exact `0.1.34-dev` runtime diff at `716bb6940c35cc75fcaeb530915a7cb6741290b1` was reviewed after implementation; it changes only three chat-label colours, section-header colour/rule styling, and TOC version.
+- `0.1.34-dev` validation run `36165705057` passed the canonical Lua 5.0.2 checker self-test and compiled `pfUI_VendorTweaks.lua`, `Debug.lua`, and all locale Lua files. The validated runtime Lua blob is `25f2dc0025ad56ed4c9a41c58ea94a6226d9920b`.
+- The temporary `0.1.34` checker workflow was removed immediately afterward; current `dev` contains no validation-only workflow and the validated runtime Lua blob is unchanged.
 
 ## Current Issues
 - No current static or compiler regression is known.
-- No current Auto-Buy purchase-engine issue is reported on the tested `0.1.32-dev` runtime; the user explicitly reports that behaviour works.
-- `0.1.33-dev` is UI-only and still needs target-client validation of the same-line top-row alignment, blank/non-auto-filled input, red invalid state, disabled/grey Add state, and horizontal overflow scrolling.
+- No current Auto-Buy purchase-engine or configuration-layout issue is reported on the tested `0.1.33-dev` runtime; the user explicitly reports all tested behaviour works and the layout feels good.
+- `0.1.34-dev` is styling-only and still needs target-client visual validation of teal headers, silver chat-option labels, and correctly bounded 1px rules.
 - The temporary `0.1.31` Auto-Buy list is intentionally discarded on first `0.1.32+` load; this is expected, not a persistence regression. Current `max_count` entries remain compatible and are not reset by `0.1.33`.
 - Historical validation note: the occupied-cursor P1 edge case was not deliberately reproduced because the 0.20-second timing window is impractical to hit manually; no related regression was observed during natural play.
 
 ## Testing
 
 ### Last Runtime Test
-- Version/runtime source: `0.1.32-dev` handoff at `437594b661f395ea8545b283973651b60a352721` (runtime Lua blob `719628956e859747cc9473e57d6013b8a6dfdb94`).
-- Result: user explicitly reports the corrected Auto-Buy behaviour works.
-- Remaining feedback is configuration UX/layout only: never auto-fill `No more than`; disable/grey `Add` until valid; render invalid non-empty input red; put the configuration controls on one row; keep saved Auto-Buy items to one horizontally scrollable icon row.
+- Version/runtime source: `0.1.33-dev` handoff at `15064000fa0811a4c6975b411b946ef08ed18c69` (runtime Lua blob `c1d4d11e901389490199145b19ab2ffbcf7dcfc1`).
+- Result: user reports all tested behaviour works and the layout feels good.
+- Requested follow-up is visual hierarchy only: teal functional section headers, silver Sell/Delete/Buy option labels, and subtle right-extending 1px section rules without adding vertical size.
 
 ### Next Runtime Test
-Use the exact current `0.1.33-dev` build and verify the UI-only Auto-Buy delta:
-1. Addon/options load with no Lua errors. Confirm the top row reads visually as drop item/label on the left, then `No more than [ ] [Add]` on the same line.
-2. Drop an item. The `No more than` field must remain blank; the addon must never insert a default or saved number.
-3. With the field empty, confirm `Add` is grey and cannot be clicked. Type a valid positive integer and confirm `Add` becomes active only while an item is staged.
-4. Type invalid non-empty input (for example letters, decimal text, a sign, or `0`): the field text should turn red and `Add` must remain disabled/grey. Clearing or correcting it should restore the appropriate neutral/valid state.
-5. Add/update an item and confirm the field clears afterward, the saved icon shows the configured maximum, and remove still works.
-6. Confirm the saved-items box is only one icon row high. Add enough entries to exceed its width and confirm mouse-wheel input scrolls the strip horizontally instead of creating another row.
-7. Quick regression sanity only: open a relevant merchant and confirm the already accepted `0.1.32` Auto-Buy purchasing behaviour remains unchanged.
+Use the exact current `0.1.34-dev` build and verify the styling-only delta:
+1. Confirm AUTO-BUY, AUTO-SELL and AUTO-DELETE are pfUI teal.
+2. Confirm Sell/Delete/Buy checkbox labels are silver/neutral while Chat Messages stays gold.
+3. Confirm each teal heading has a subtle 1px rule beginning just after the text.
+4. Confirm AUTO-BUY's rule ends at the full-width section edge; AUTO-SELL's rule stops before the centre gutter; AUTO-DELETE has its own right-column rule.
+5. Confirm no extra vertical height, overlap or change to the already accepted `0.1.33` behaviour/layout.
 
 ## Planned / Next Work
-- Stop code changes at the `0.1.33-dev` runtime-validation gate.
-- Use user runtime results to correct only demonstrated issues in the new input-state/one-row-layout delta.
-- Do not alter the accepted `0.1.32` purchase engine, promote, translate additional locales, add the optional current/max label, or broaden merchant behavior before this UI delta is user-accepted.
+- Stop code changes at the `0.1.34-dev` runtime-validation gate.
+- Use user runtime results to correct only demonstrated issues in the new visual-hierarchy styling.
+- Do not alter the accepted `0.1.33` behaviour/layout, promote, translate additional locales, add the optional current/max label, or broaden merchant behavior before this styling delta is user-accepted.
 
 ## Deferred / Out of Scope
 - Longer/higher-frame/two-part burn replacement remains shelved.
@@ -312,4 +321,4 @@ Use the exact current `0.1.33-dev` build and verify the UI-only Auto-Buy delta:
 - External/runtime prerequisites remain World of Warcraft 1.12.1 and pfUI; no optional DLL/client extension is required.
 
 ## Exact Next Step
-User runtime-test the exact `0.1.33-dev` build using the "Next Runtime Test" sequence above. First priority is the blank/validated `No more than` field, disabled/grey Add state and one-row horizontal saved-items strip. The accepted `0.1.32` purchase engine is intentionally unchanged. Do not promote or broaden scope before those results.
+User runtime-test the exact `0.1.34-dev` build using the "Next Runtime Test" sequence above. This is a styling-only gate: teal functional section headers, silver chat-option labels and correctly bounded 1px rules. The accepted `0.1.33` behaviour/layout is intentionally unchanged. Do not promote or broaden scope before those results.
