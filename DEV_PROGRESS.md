@@ -3,8 +3,9 @@
 ## Current
 - Branch: `dev`
 - Dev version: `0.1.34-dev`.
-- Stable release: `0.1.28` on `main` at `9df26d5606bcfecae59d22227219fe6d939bfe94`.
-- User-tested runtime source: `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`; the stable release uses the exact same `pfUI_VendorTweaks.lua` blob (`d4011262f648fe98bcf78be37640cbce249d6e6b`) with stable TOC metadata and dev-only material removed.
+- Stable release: `0.1.34` on `main` at `a629c63bd19a13a92dc27aaddd3083b8187ab52e`.
+- Accepted/tested development runtime: `0.1.34-dev` runtime commit `716bb6940c35cc75fcaeb530915a7cb6741290b1`, handoff `c6bfd889a577524bb05e6c1937074ce085dfbb95`, runtime Lua blob `25f2dc0025ad56ed4c9a41c58ea94a6226d9920b`.
+- Stable `0.1.34` uses that exact runtime Lua blob with stable TOC metadata and dev-only material excluded.
 - Release-facing P3 runtime commit: `50efdff8f24001010b087abdf817da86a669646a`.
 - P2 runtime commit: `63a75ebdda85bec16dc074f48622fd1bcdd38576`.
 - P1 runtime commits: `a1c9b6daec6fd06b644a804b19d6490cb89babab` and `e5e8e96a779a8bee01d73ed9772cf7afdde29ddf`.
@@ -17,8 +18,9 @@
 - `0.1.34-dev` runtime commit: `716bb6940c35cc75fcaeb530915a7cb6741290b1`.
 - Lua-validated `0.1.34-dev` tree: `ae3aed92a4097a32ac1a3f150f63b501be1dbe53`; Actions run `36165705057` passed the canonical Lua 5.0.2 checker/self-test and all addon Lua files. Current runtime Lua is the exact validated blob `25f2dc0025ad56ed4c9a41c58ea94a6226d9920b`.
 - Current pre-handoff dev head: `47ca7cea444519e2b55356bb9a9469768491f6e1`; the only post-validation change removed the temporary checker workflow.
-- Mode: runtime-validation gate for the focused `0.1.34-dev` settings visual-hierarchy refinement.
-- Current scope: user-test only the new header/label/rule styling. All accepted `0.1.33` behaviour remains unchanged. Do not promote or broaden scope.
+- Stable promotion complete: `0.1.34` is on `main`.
+- Mode: post-promotion stable baseline; no active feature work.
+- Current scope: preserve the accepted `0.1.34` runtime. Start any further work as a new dev revision rather than modifying the promoted baseline.
 
 ## Current Design / Development Contract
 
@@ -209,6 +211,7 @@ Post-P3 re-audit:
 ## Completed / User-Verified
 - `0.1.34-dev` styling gate is user-accepted from runtime: teal AUTO-BUY/AUTO-SELL/AUTO-DELETE headers, silver Sell/Delete/Buy option labels, bounded 1px rules and unchanged vertical layout all look correct.
 - `0.1.34-dev` release smoke: ordinary selling works, Sell Delay survives reload, Auto-Delete works, independent chat messages work, and combined sell -> Auto-Buy merchant ordering works.
+- Stable `0.1.34` was promoted from the exact accepted runtime blob with only stable metadata/dev-file removal differences.
 - `0.1.33-dev` Auto-Buy blank/manual `No more than` input, disabled/grey Add state, invalid red text, one-row saved-items strip and overall layout were reported by the user as working; the layout feels good.
 - `0.1.32-dev` Auto-Buy hard actual-count ceiling and corrected vendor-batch purchase behaviour were explicitly reported by the user as working; no further purchase-engine change is requested in `0.1.33`.
 - `0.1.31-dev` staged Auto-Buy text input accepted typed numbers in-game. The field was hard to discover while empty because no visible background rectangle was present; this is corrected in `0.1.32-dev`.
@@ -247,7 +250,7 @@ Post-P3 re-audit:
 - `0.1.31` `inventory_stacks` Auto-Buy entries are cleared once on initialization for safety; no ambiguous automatic conversion is attempted.
 - Merchant ordering remains sales first, then Auto-Buy, so selling can free bag space before restocking.
 - Auto-Sell, Auto-Delete and Auto-Buy ownership remains mutually exclusive per item after `Add` commits a staged Auto-Buy entry.
-- The remaining `0.1.30-dev` options/list/chat/burn work is unchanged and remains awaiting its uncompleted runtime validation.
+- The former `0.1.30+` feature pass has been promoted as stable `0.1.34`; no broader runtime-validation gate remains open.
 - New `No more than` and existing `Add` strings are present in `enUS`; other locales continue to use the existing enUS fallback for the new keys.
 
 ## Static / Automated Checks
@@ -276,13 +279,16 @@ Post-P3 re-audit:
 - `0.1.33-dev` validation run `36160817841` passed the canonical Lua 5.0.2 checker self-test and compiled `pfUI_VendorTweaks.lua`, `Debug.lua`, and all locale Lua files. The validated runtime Lua blob is `c1d4d11e901389490199145b19ab2ffbcf7dcfc1`.
 - Exact `0.1.34-dev` runtime diff at `716bb6940c35cc75fcaeb530915a7cb6741290b1` was reviewed after implementation; it changes only three chat-label colours, section-header colour/rule styling, and TOC version.
 - `0.1.34-dev` validation run `36165705057` passed the canonical Lua 5.0.2 checker self-test and compiled `pfUI_VendorTweaks.lua`, `Debug.lua`, and all locale Lua files. The validated runtime Lua blob is `25f2dc0025ad56ed4c9a41c58ea94a6226d9920b`.
-- The temporary `0.1.34` checker workflow was removed immediately afterward; current `dev` contains no validation-only workflow and the validated runtime Lua blob is unchanged.
+- The temporary `0.1.34` dev checker workflow was removed immediately afterward; current `dev` contains no validation-only workflow and the validated runtime Lua blob is unchanged.
+- Prospective stable commit `a629c63bd19a13a92dc27aaddd3083b8187ab52e` was built from the existing `main` tree to preserve release-only content, replacing only the accepted runtime Lua, enUS locale additions, and stable TOC metadata.
+- Stable-file-set Lua 5.0.2 validation run `36183733765` passed on `release/0.1.34-validation`, compiling `pfUI_VendorTweaks.lua` plus the locale files with the canonical checker/self-test.
+- The exact promoted stable tree contains only `README.md`, artwork, locales, `pfUI_VendorTweaks.lua`, stable `pfUI_VendorTweaks.toc`, and `pfui-av.png`; it contains no `DEV_PROGRESS.md`, `dev_rulebook.md`, `Debug.lua`, or temporary workflow.
 
 ## Current Issues
 - No current static or compiler regression is known.
 - No current Auto-Buy purchase-engine or configuration-layout issue is reported on the tested `0.1.33-dev` runtime; the user explicitly reports all tested behaviour works and the layout feels good.
 - `0.1.34-dev` styling and the main release smoke paths are user-accepted.
-- The only remaining untested release item is whether changing the Animation Duration slider visibly changes burn speed. The burn itself is already user-verified; the user is currently not in a position to exercise the duration variation.
+- Accepted validation debt for stable `0.1.34`: changing the Animation Duration slider was not separately exercised to confirm visibly different burn speed. The burn itself is user-verified, and the user explicitly authorized promotion with this remaining gap.
 - The temporary `0.1.31` Auto-Buy list is intentionally discarded on first `0.1.32+` load; this is expected, not a persistence regression. Current `max_count` entries remain compatible and are not reset by `0.1.33`.
 - Historical validation note: the occupied-cursor P1 edge case was not deliberately reproduced because the 0.20-second timing window is impractical to hit manually; no related regression was observed during natural play.
 
@@ -294,15 +300,13 @@ Post-P3 re-audit:
 - Remaining untested item: changing Animation Duration and confirming the burn speed changes. The user cannot currently exercise this test.
 
 ### Next Runtime Test
-- No further mandatory broad runtime pass is planned.
-- Optional remaining check when convenient: change Animation Duration away from 1.00s (for example 0.20s), trigger one configured Auto-Delete, and confirm the burn is visibly faster.
-- If promotion proceeds before that check, record the duration-control path as explicit accepted validation debt; the burn itself and all other current release smoke paths are user-verified.
+- No mandatory post-release runtime test is pending.
+- Optional debt closure when convenient: change Animation Duration away from 1.00s (for example 0.20s), trigger one configured Auto-Delete, and confirm the burn is visibly faster.
 
 ## Planned / Next Work
-- Stop feature/code changes on dev.
-- The current `0.1.34-dev` runtime is accepted for all exercised release paths.
-- Promotion may proceed once the user chooses to accept the untested Animation Duration variation as validation debt; otherwise wait for that single optional check.
-- Do not alter the accepted runtime, add features, translate additional locales, add the optional current/max label, or broaden merchant behavior before promotion.
+- Stable `0.1.34` is complete on `main`; no immediate development work is required.
+- Any new feature/fix should begin from the current stable baseline as a new numeric `-dev` revision.
+- Optional later debt closure: exercise Animation Duration variation; do not retroactively describe it as tested unless that runtime check actually occurs.
 
 ## Deferred / Out of Scope
 - Longer/higher-frame/two-part burn replacement remains shelved.
@@ -313,13 +317,13 @@ Post-P3 re-audit:
 - A dynamic Auto-Buy current/max presentation such as `146/200` beneath saved icons is explicitly deferred until after the current runtime gate; do not add it during validation.
 
 ## Release / Promotion Notes
-- Current stable release is `0.1.28` on `main` at `9df26d5606bcfecae59d22227219fe6d939bfe94`.
-- Stable TOC metadata is `VendorTweaks` / `0.1.28`.
-- Stable runtime Lua blob is exactly `d4011262f648fe98bcf78be37640cbce249d6e6b`, matching the user-tested dev runtime.
-- Stable release excludes `DEV_PROGRESS.md`, `dev_rulebook.md`, `Debug.lua`, and development-only loader entries.
-- Release validation: corrected stable-file-set Lua 5.0.2 run `36035354158` passed.
-- Accepted validation debt: the occupied-cursor 0.20-second edge case was not deliberately reproduced; natural play showed no related regression.
+- Current stable release is `0.1.34` on `main` at `a629c63bd19a13a92dc27aaddd3083b8187ab52e`.
+- Stable TOC metadata is `VendorTweaks` / `0.1.34`.
+- Stable runtime Lua blob is exactly `25f2dc0025ad56ed4c9a41c58ea94a6226d9920b`, matching the accepted/tested `0.1.34-dev` runtime.
+- Stable release excludes `DEV_PROGRESS.md`, `dev_rulebook.md`, `Debug.lua`, temporary validation workflows, and development-only loader entries.
+- Stable-file-set Lua 5.0.2 validation run `36183733765` passed before `main` was advanced.
+- Accepted validation debt: the Animation Duration slider's effect on burn speed was not separately exercised; the burn itself is user-verified. The historical occupied-cursor 0.20-second edge case also remains accepted debt; natural play showed no related regression.
 - External/runtime prerequisites remain World of Warcraft 1.12.1 and pfUI; no optional DLL/client extension is required.
 
 ## Exact Next Step
-Decide whether to accept the untested Animation Duration variation as explicit validation debt. If accepted, compare the exact accepted `0.1.34-dev` runtime against stable `main`, then promote that runtime to stable `0.1.34` with dev-only material removed and run the canonical stable-file-set Lua 5.0.2 validation before publishing. Do not introduce further runtime changes during promotion.
+No active work is required. If development resumes, start from stable `0.1.34` / `main` commit `a629c63bd19a13a92dc27aaddd3083b8187ab52e`, create the next numeric `-dev` revision on `dev`, and preserve the documented validation debt unless/until it is actually exercised.
