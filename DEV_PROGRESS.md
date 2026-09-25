@@ -2,7 +2,7 @@
 
 ## Current
 - Branch: `dev`
-- Dev version: `0.1.32-dev`.
+- Dev version: `0.1.33-dev`.
 - Stable release: `0.1.28` on `main` at `9df26d5606bcfecae59d22227219fe6d939bfe94`.
 - User-tested runtime source: `c47b9c59e60607f539a3d2fc47d6862a7cb596eb`; the stable release uses the exact same `pfUI_VendorTweaks.lua` blob (`d4011262f648fe98bcf78be37640cbce249d6e6b`) with stable TOC metadata and dev-only material removed.
 - Release-facing P3 runtime commit: `50efdff8f24001010b087abdf817da86a669646a`.
@@ -12,11 +12,12 @@
 - Pre-redesign head: `3fc2aee6626aceaf18964de96a0a1071cfa79286`; this was the prior handoff plus the repository-wide rulebook versioning clarification only.
 - `0.1.30-dev` runtime-validation handoff: `932a35632eca5def6983b211db881ebfa6ecf4d9`; later commits before the user's test changed development documentation only.
 - `0.1.31-dev` runtime commit: `38453ab5567e37e6b2b8224c5b9f98aa4f9eb81d`; its staged input worked in-game but the inventory-stack model and batched purchase call were rejected by runtime testing.
-- `0.1.32-dev` runtime commit: `83f2f5cb9ad241de850c81f43e78e764673e779e`.
-- Lua-validated `0.1.32-dev` tree: `b6df4ef2fddd62d84858070a0f0a29833275c1ab`; Actions run `36157287265` passed the canonical Lua 5.0.2 checker/self-test and all addon Lua files. Current runtime Lua is the exact validated blob `719628956e859747cc9473e57d6013b8a6dfdb94`.
-- Current pre-handoff dev head: `62f7f72a93bc3524cdbc09af458af5b6225d0c39`; the only post-validation change removed the temporary checker workflow.
-- Mode: runtime-validation gate for the focused `0.1.32-dev` Auto-Buy hard-count ceiling, vendor-batch execution and visible empty input correction.
-- Current scope: user-test only the corrected Auto-Buy count/batch/UI path plus the still-open `0.1.30-dev` merchant/burn/list delta. Do not promote or broaden scope.
+- `0.1.32-dev` runtime commit: `83f2f5cb9ad241de850c81f43e78e764673e779e`; handoff head `437594b661f395ea8545b283973651b60a352721`; runtime Lua blob `719628956e859747cc9473e57d6013b8a6dfdb94`. User explicitly reported the corrected Auto-Buy behaviour works.
+- `0.1.33-dev` runtime commit: `3816e1a0800e638f22b71e92df7f658a09bbea4f`.
+- Lua-validated `0.1.33-dev` tree: `0a7cc06b5a0aa428d39bed7e3abece6d8274bc4e`; Actions run `36160817841` passed the canonical Lua 5.0.2 checker/self-test and all addon Lua files. Current runtime Lua is the exact validated blob `c1d4d11e901389490199145b19ab2ffbcf7dcfc1`.
+- Current pre-handoff dev head: `35ddeab61d1dd141a33c4a2edd112b828c162e50`; the only post-validation change removed the temporary checker workflow.
+- Mode: runtime-validation gate for the focused `0.1.33-dev` Auto-Buy input-state and one-row saved-items layout refinement.
+- Current scope: user-test only the new Auto-Buy UI interaction/layout delta; the accepted `0.1.32` purchase semantics remain unchanged. Do not promote or broaden scope.
 
 ## Current Design / Development Contract
 
@@ -30,7 +31,7 @@
 
 ### Invariants
 - Technical addon/folder/metadata identity is `pfUI_VendorTweaks`; stale hyphenated `pfUI-VendorTweaks.toc/.lua` files from older installs must not be used.
-- The addon version comes from the TOC. Current development is `0.1.32-dev`; it inherits the accepted `0.1.28` runtime baseline plus the still-partially-tested `0.1.30-dev` feature work, retains the validated staged-input shape from `0.1.31-dev`, and replaces only the rejected inventory-stack/batched-purchase semantics.
+- The addon version comes from the TOC. Current development is `0.1.33-dev`; it inherits the accepted `0.1.28` runtime baseline plus the user-accepted `0.1.32-dev` Auto-Buy hard-count/vendor-batch behaviour, and changes only the Auto-Buy configuration interaction/layout.
 - The approved production Auto-Delete feedback remains the existing single 8-frame strip `artwork/pfUI_VendorTweaks_Burn.tga`, with `BIN_FRAME_COUNT = 8` and approximately 1.0 second default runtime.
 - Debug controls may tune/preview the existing animation but must not become a stable runtime dependency.
 - Do not introduce heuristic buyback matching: stock 1.12 buyback API does not expose an exact item link/ID suitable for a reliable Auto-Delete exemption.
@@ -41,21 +42,24 @@
 - No external protocol is involved.
 - Existing item lists and metadata remain compatible. `0.1.30-dev` intentionally retires the old takeover/Auto-Vendor/Auto-Delete/Auto-Buy enable flags: list membership is now the feature opt-in, while Sell/Delete/Buy chat preferences remain persistent SavedVariables.
 - Vendor/delete list membership remains item-ID keyed. Auto-Buy is item-ID keyed with a hard maximum actual item count as its value.
-- `DB.buyListUnit = "max_count"` marks the `0.1.32` representation.
+- `DB.buyListUnit = "max_count"` marks the current Auto-Buy representation; `0.1.33` does not change SavedVariables semantics.
 - The short-lived `0.1.31` `inventory_stacks` representation is intentionally cleared once during initialization instead of being guessed into counts: the user's tests showed the same stored number could reflect either intended item count or intended inventory stacks, so automatic reinterpretation could trigger an unexpectedly large purchase.
 - Cached name/icon/stack metadata remains presentation/defaulting data only; purchase arithmetic no longer depends on inventory maximum stack size.
 
 ### Active Decisions
 - The completed `0.1.28` performance pass remains the accepted runtime baseline. The `0.1.30-dev` options layout was partially exercised and judged basically fine, but its inline Auto-Buy quantity EditBox focused/blinked without accepting typed input.
 - The staged Auto-Buy flow introduced in `0.1.31-dev` is retained because its standalone text input accepted typing in-game. Its label/meaning is changed from `Inventory stacks` to `No more than`, meaning an actual item-count ceiling.
-- The `0.1.31` empty numeric field lacked a visible rectangle until it contained text; `0.1.32` puts the EditBox inside a permanently backdropped holder so the input target is visible before staging an item.
+- The `0.1.31` empty numeric field lacked a visible rectangle until it contained text; `0.1.32` put the EditBox inside a permanently backdropped holder so the input target is visible before staging an item.
+- User runtime feedback accepts the `0.1.32` hard actual-count ceiling and vendor-batch purchase behaviour as working. `0.1.33` must not alter that purchase engine.
+- `0.1.33` deliberately never auto-populates the `No more than` field. The player supplies the number. Empty input keeps `Add` disabled/grey; a non-empty invalid string turns red and also leaves `Add` disabled; a valid positive integer plus a staged item enables `Add`.
+- The saved Auto-Buy area is now one icon-high full-width strip below the configuration row. Entries never wrap vertically; overflow scrolls horizontally with the mouse wheel.
 - Runtime evidence distinguishes vendor batch size from inventory stack size. Auto-Buy therefore uses `GetMerchantItemInfo` batch quantity for purchasing and does not use inventory max stack size to determine the user's ceiling.
 - The performance audit should prioritize removing recurring idle/background work over micro-optimizing one-shot configuration or merchant operations.
 - Preserve event-driven ownership: temporary workers may run while a real operation is active, but they should become fully dormant when no work is pending.
 - The longer/higher-frame/two-part Fire/Ash burn replacement remains shelved; the restored 8-frame implementation is the approved production state.
 - Current branding remains `pfUI VendorTweaks`. The old feature-enable and animation-enable checkbox layout is superseded by the user-approved streamlined controls in this pass.
 
-## Active Feature Pass — 0.1.32-dev
+## Active Feature Pass — 0.1.33-dev
 
 ### Requested behaviour
 - Installing VendorTweaks means VendorTweaks owns pfUI grey auto-selling; there is no separate takeover checkbox.
@@ -65,9 +69,9 @@
 - Chat feedback is independently configurable for Sell, Delete and Buy.
 - Auto-Buy maintains a user-configured hard maximum actual item count across bags `0`–`4` when a merchant selling that item is opened.
 - Auto-Buy configuration is item-ID keyed. Each entry stores its `No more than` count directly.
-- Dropping an item into Auto-Buy stages it without changing list ownership. The standalone `No more than` field defaults from the item's normal stack size when that metadata is available, otherwise `1`; an existing Auto-Buy item stages with its saved maximum. Pressing `Add` commits the entry and mutual-exclusion ownership change.
+- Dropping an item into Auto-Buy stages it without changing list ownership. The standalone `No more than` field is never auto-filled; the player must type the desired hard item-count ceiling. Pressing enabled `Add` commits the entry and mutual-exclusion ownership change.
 - Merchant matching remains exact item ID. `GetMerchantItemInfo` quantity is treated as vendor batch size, and Auto-Buy buys only whole batches that fit without exceeding the configured maximum.
-- For singly sold goods (`batchSize == 1`), the quantity argument is used directly. For batched goods, `0.1.32` deliberately avoids the historically ambiguous second argument to `BuyMerchantItem` and issues one no-quantity call per required vendor batch.
+- For singly sold goods (`batchSize == 1`), the quantity argument is used directly. For batched goods, the accepted `0.1.32` engine deliberately avoids the historically ambiguous second argument to `BuyMerchantItem` and issues one no-quantity call per required vendor batch; `0.1.33` leaves this logic unchanged.
 - Buy chat reports the requested number of actual item units, not the number of vendor-batch API calls.
 - Auto-Buy counts bags only, not bank contents.
 - Auto-Vendor, Auto-Delete and Auto-Buy membership are mutually exclusive for the same item because simultaneous buy/sell/delete ownership would create contradictory merchant behaviour.
@@ -76,8 +80,10 @@
 ### UI direction
 - Header controls: `Sell Delay` slider on the left (`0.00`–`0.20s`) and `Animation Duration` slider on the right (`0.20`–`1.00s`).
 - One compact `Chat Messages` row below them: `Sell [x]`, `Delete [x]`, `Buy [x]`.
-- Auto-Buy comes next at full width: drop target on the left, a visibly outlined standalone `No more than` numeric field plus `Add` underneath it, and the saved Auto-Buy icon area on the right.
-- Saved Auto-Buy entries are compact icon tiles with the configured maximum item count visibly attached to the icon; names remain available by hover rather than consuming row width.
+- Auto-Buy top row is: drop target + `Drop item here to auto-buy` on the left, then `No more than [ ] [Add]` on the same row.
+- The `No more than` EditBox is always visibly outlined but starts empty and is never programmatically populated. Empty input is neutral; non-empty invalid input is red.
+- `Add` is disabled with grey text unless both a staged item and a valid positive integer are present; valid input restores the normal active Add appearance.
+- Saved Auto-Buy entries occupy one full-width box immediately below that row, exactly one icon row high. Entries are compact icon tiles with the configured maximum count attached; they never wrap vertically, and overflow scrolls horizontally with the mouse wheel.
 - Auto-Sell and Auto-Delete remain the lower two-column section, each with its drop target and scrollable item list.
 - Do not add the optional dynamic current/max label (for example `146/200`) yet; it remains a possible later presentation refinement after this gate.
 
@@ -85,13 +91,12 @@
 - Real Lua 5.0.2 compile/static check before runtime handoff.
 - Runtime: existing Auto-Vendor and Auto-Delete regression sanity.
 - Runtime: burn animation at default plus at least one shorter and one longer configured duration.
-- Runtime: staged Auto-Buy drop, visible empty input rectangle, numeric typing, Add commit, icon-attached maximum count, remove control and re-staging an existing entry for update.
-- Runtime: singly sold Symbol of Divinity with 3 held and `No more than = 5` should request/buy 2 and end at 5.
-- Runtime: batched Symbol of Kings with 20 held, vendor batch 20 and `No more than = 100` should make four one-batch purchase calls, add 80 actual items, end at 100 and show Buy chat x80.
-- Runtime: Crystal Vial (vendor batch 5, normal inventory max stack 20) should respect the same count ceiling independently of its inventory stack size; for example 0 held / max 20 should buy four vendor batches.
-- Runtime: verify impossible remainders stay below the ceiling rather than overbuying (for example Kings at 81/100 should buy nothing).
-- Runtime: confirm the temporary `0.1.31` Auto-Buy list is cleared once on upgrade and newly added `max_count` values persist across reload.
-- Runtime: confirm list exclusivity when moving the same item between Auto-Vendor, Auto-Delete and Auto-Buy.
+- Runtime: Auto-Buy top row alignment should match the approved layout: drop target/label on the left and `No more than [ ] [Add]` on the same line to the right.
+- Runtime: staging an item must not insert any number into `No more than`; re-staging an existing saved entry must also leave the field unpopulated by the addon.
+- Runtime: with no value, `Add` stays disabled/grey. A valid positive integer enables `Add` only when an item is staged. A non-empty invalid string (letters, decimal, sign, zero, etc.) renders red and leaves `Add` disabled.
+- Runtime: pressing enabled `Add` commits the saved max count, clears the input, and places/updates the icon in the one-row saved-items box.
+- Runtime: saved items remain a single icon row. Add enough entries to overflow the width and confirm mouse-wheel horizontal scrolling reveals the hidden items without increasing box height.
+- Runtime: quick regression sanity that the already accepted `0.1.32` purchase behaviour is unchanged.
 
 ## Performance Audit Findings
 
@@ -163,6 +168,9 @@ Post-P3 re-audit:
 - No further obvious recurring runtime cost is currently worth another optimization stage before user validation.
 
 ## Recent Relevant Commits
+- `35ddeab61d1dd141a33c4a2edd112b828c162e50` — Remove the temporary Lua 5.0 checker after successful `0.1.33-dev` validation.
+- `0a7cc06b5a0aa428d39bed7e3abece6d8274bc4e` — Temporary validation workflow commit; Actions run `36160817841` passed the canonical Lua 5.0.2 checker/self-test and all addon Lua files.
+- `3816e1a0800e638f22b71e92df7f658a09bbea4f` — Refine Auto-Buy input state and saved-items layout; bump to `0.1.33-dev`.
 - `62f7f72a93bc3524cdbc09af458af5b6225d0c39` — Remove the temporary Lua 5.0 checker after successful `0.1.32-dev` validation.
 - `b6df4ef2fddd62d84858070a0f0a29833275c1ab` — Temporary validation workflow commit; Actions run `36157287265` passed the canonical Lua 5.0.2 checker/self-test and all addon Lua files.
 - `83f2f5cb9ad241de850c81f43e78e764673e779e` — Fix Auto-Buy count ceiling, batched merchant execution and permanently visible empty input; bump to `0.1.32-dev`.
@@ -193,6 +201,7 @@ Post-P3 re-audit:
 - `a1c9b6daec6fd06b644a804b19d6490cb89babab` — Remove background icon-repair polling and begin 0.1.28-dev performance pass.
 
 ## Completed / User-Verified
+- `0.1.32-dev` Auto-Buy hard actual-count ceiling and corrected vendor-batch purchase behaviour were explicitly reported by the user as working; no further purchase-engine change is requested in `0.1.33`.
 - `0.1.31-dev` staged Auto-Buy text input accepted typed numbers in-game. The field was hard to discover while empty because no visible background rectangle was present; this is corrected in `0.1.32-dev`.
 - `0.1.31-dev` Symbol of Divinity test: 3 held, user entered 5, addon bought 2, Buy chat reported x2 and final count was 5.
 - `0.1.31-dev` Symbol of Kings test: 20 held, user entered 100, Buy chat reported x80 but the purchase filled the bags with Kings. This demonstrated that passing the computed unit amount directly as the second `BuyMerchantItem` argument is unsafe for the target client's batched merchant items.
@@ -216,9 +225,11 @@ Post-P3 re-audit:
 - Sell Delay is a `0.00`–`0.20s` slider; the active sell worker still caches the chosen delay for the queue.
 - The approved 8-frame Auto-Delete burn is always used for delete feedback and `Animation Duration` is a `0.20`–`1.00s` slider, default `1.00s`.
 - Chat Messages are independently controlled by Sell/Delete/Buy checkboxes; Buy chat reports the merchant item and requested purchase amount.
-- `0.1.32-dev` retains the staged Auto-Buy flow but changes the setting to actual item count: `No more than`.
-- The numeric input now sits inside a permanently backdropped holder so the empty field is visibly discoverable before an item is staged.
-- Saved Auto-Buy entries remain compact icon tiles; their attached number is now the hard maximum actual item count, and hover repeats that `No more than` value.
+- The accepted `0.1.32-dev` staged Auto-Buy/hard-count purchase engine is unchanged.
+- `0.1.33-dev` never auto-fills the `No more than` field and removes the numeric-only input restriction so invalid strings can be shown explicitly rather than silently blocked.
+- Input validation is live: empty remains neutral; non-empty invalid text turns red; valid positive integer text is normal.
+- `Add` is a real disabled Button with grey text until a staged item and valid positive integer are both present; it re-enables with normal text only when the configuration is commit-ready.
+- Saved Auto-Buy entries remain compact icon tiles with the hard maximum actual item count attached, but are now laid out in one horizontal row inside a 415x38 full-width strip. The child width grows with entries and mouse-wheel input changes horizontal scroll; no vertical wrapping remains.
 - Auto-Buy batch calculation is `unitsToBuy = floor((maximum - have) / vendorBatchSize) * vendorBatchSize`, so impossible remainders are intentionally left below the ceiling.
 - For `batchSize == 1`, Auto-Buy calls `BuyMerchantItem(index, unitsToBuy)`. For `batchSize > 1`, it issues `unitsToBuy / batchSize` separate `BuyMerchantItem(index)` calls, each representing one vendor batch on the target client; this avoids the demonstrated batched second-argument hazard.
 - Buy chat reports `unitsToBuy` actual items even when several no-quantity batch calls are used internally.
@@ -250,48 +261,45 @@ Post-P3 re-audit:
 - `0.1.31-dev` validation run `36147804790` passed the canonical Lua 5.0.2 checker self-test and compiled `pfUI_VendorTweaks.lua`, `Debug.lua`, and all locale Lua files.
 - Exact `0.1.32-dev` runtime diff at `83f2f5cb9ad241de850c81f43e78e764673e779e` was reviewed after implementation; it changes only Auto-Buy representation/migration, hard-ceiling batch execution, the staged input presentation/wording, enUS label, and TOC version.
 - `0.1.32-dev` validation run `36157287265` passed the canonical Lua 5.0.2 checker self-test and compiled `pfUI_VendorTweaks.lua`, `Debug.lua`, and all locale Lua files. The validated runtime Lua blob is `719628956e859747cc9473e57d6013b8a6dfdb94`.
-- The temporary `0.1.32` checker workflow was removed immediately afterward; current `dev` contains no validation-only workflow and the validated runtime Lua blob is unchanged.
+- Exact `0.1.33-dev` runtime diff at `3816e1a0800e638f22b71e92df7f658a09bbea4f` was reviewed after implementation; it changes only Auto-Buy configuration input state/layout and TOC version. The `0.1.32` merchant purchase engine and SavedVariables representation are unchanged.
+- `0.1.33-dev` validation run `36160817841` passed the canonical Lua 5.0.2 checker self-test and compiled `pfUI_VendorTweaks.lua`, `Debug.lua`, and all locale Lua files. The validated runtime Lua blob is `c1d4d11e901389490199145b19ab2ffbcf7dcfc1`.
+- The temporary `0.1.33` checker workflow was removed immediately afterward; current `dev` contains no validation-only workflow and the validated runtime Lua blob is unchanged.
 
 ## Current Issues
 - No current static or compiler regression is known.
-- The `0.1.30-dev` options panel received only partial runtime validation. Its overall layout was acceptable, and `0.1.31` proved the staged standalone EditBox can accept typing; `0.1.32` still needs the new visible-empty-box presentation checked.
-- Batched merchant purchasing remains the highest-priority runtime check. `0.1.31` demonstrated that passing an item-unit amount as `BuyMerchantItem(index, quantity)` can massively overbuy a batched reagent on the target client. `0.1.32` avoids that path for batch sizes greater than one, but the replacement repeated one-batch calls need target-client verification before promotion.
-- The temporary `0.1.31` Auto-Buy list is intentionally discarded on first `0.1.32` load; this is expected, not a persistence regression. New `max_count` entries must persist normally after they are re-added.
-- Buy chat now reports intended actual units rather than API-call quantity. Verify Symbol of Kings reports x80 for four 20-item batch calls and that the actual bag increase is 80.
+- No current Auto-Buy purchase-engine issue is reported on the tested `0.1.32-dev` runtime; the user explicitly reports that behaviour works.
+- `0.1.33-dev` is UI-only and still needs target-client validation of the same-line top-row alignment, blank/non-auto-filled input, red invalid state, disabled/grey Add state, and horizontal overflow scrolling.
+- The temporary `0.1.31` Auto-Buy list is intentionally discarded on first `0.1.32+` load; this is expected, not a persistence regression. Current `max_count` entries remain compatible and are not reset by `0.1.33`.
 - Historical validation note: the occupied-cursor P1 edge case was not deliberately reproduced because the 0.20-second timing window is impractical to hit manually; no related regression was observed during natural play.
 
 ## Testing
 
 ### Last Runtime Test
-- Version/runtime source: `0.1.31-dev` handoff at `5287013ec07ed10137b51bb6657da8d04c2a8bfa` (runtime Lua blob `ed57167b86603600f7625f887eec67121a69936e`).
-- Staged standalone input accepted typed values, but the empty field had no visible rectangle until populated.
-- Symbol of Divinity: 3 held, entered 5, bought 2, chat x2, final 5.
-- Symbol of Kings: 20 held, entered 100, chat x80, but the bags filled with Kings; this failed the batched purchase path.
-- Symbol of Kings entered as 1 after selling previous stock bought nothing, consistent with the current floor-to-batch arithmetic but also confirming the `Inventory stacks` label was unintuitive.
-- User rejected inventory-stack semantics and requested a return to a hard actual-item `No more than` count.
+- Version/runtime source: `0.1.32-dev` handoff at `437594b661f395ea8545b283973651b60a352721` (runtime Lua blob `719628956e859747cc9473e57d6013b8a6dfdb94`).
+- Result: user explicitly reports the corrected Auto-Buy behaviour works.
+- Remaining feedback is configuration UX/layout only: never auto-fill `No more than`; disable/grey `Add` until valid; render invalid non-empty input red; put the configuration controls on one row; keep saved Auto-Buy items to one horizontally scrollable icon row.
 
 ### Next Runtime Test
-Use the exact current `0.1.32-dev` build and verify the corrected Auto-Buy path first:
-1. Addon/options load with no Lua errors. Confirm the empty `No more than` input has a visible rectangle before any item is staged.
-2. The previous `0.1.31` Auto-Buy entries should be cleared once. Re-add test items using the staged drop -> `No more than` -> `Add` flow and confirm the saved icon shows the actual maximum count.
-3. Symbol of Divinity: hold 3, set `No more than = 5`, open the vendor and confirm exactly 2 are bought, Buy chat says x2, and final count is 5.
-4. Symbol of Kings: hold 20, set `No more than = 100`, open the vendor and confirm exactly 80 actual Symbols are added (four 20-item vendor batches), Buy chat says x80, and final count is 100 rather than filling bags.
-5. Test an impossible remainder: for example Kings at 81 with maximum 100 should buy nothing because the next 20-item batch would exceed the ceiling.
-6. Crystal Vial: verify vendor batch 5 behaves independently of its inventory max stack 20. A clean 0 -> maximum 20 case should buy four batches and end at 20; another non-divisible starting count should stop below the ceiling rather than exceed it.
-7. Re-stage an existing Auto-Buy item, change its maximum, press `Add`, reload, and confirm the new max-count value persists. Confirm remove still works.
-8. Then continue the still-open `0.1.30` regression checks: grey + explicit Auto-Sell, Sell Delay persistence, Auto-Delete/burn durations, independent Sell/Delete/Buy chat toggles, list exclusivity, and selling-before-restocking ordering.
+Use the exact current `0.1.33-dev` build and verify the UI-only Auto-Buy delta:
+1. Addon/options load with no Lua errors. Confirm the top row reads visually as drop item/label on the left, then `No more than [ ] [Add]` on the same line.
+2. Drop an item. The `No more than` field must remain blank; the addon must never insert a default or saved number.
+3. With the field empty, confirm `Add` is grey and cannot be clicked. Type a valid positive integer and confirm `Add` becomes active only while an item is staged.
+4. Type invalid non-empty input (for example letters, decimal text, a sign, or `0`): the field text should turn red and `Add` must remain disabled/grey. Clearing or correcting it should restore the appropriate neutral/valid state.
+5. Add/update an item and confirm the field clears afterward, the saved icon shows the configured maximum, and remove still works.
+6. Confirm the saved-items box is only one icon row high. Add enough entries to exceed its width and confirm mouse-wheel input scrolls the strip horizontally instead of creating another row.
+7. Quick regression sanity only: open a relevant merchant and confirm the already accepted `0.1.32` Auto-Buy purchasing behaviour remains unchanged.
 
 ## Planned / Next Work
-- Stop code changes at the `0.1.32-dev` runtime-validation gate.
-- Use user runtime results to correct only demonstrated issues in the hard-count/batch/input-visibility delta or the still-open `0.1.30` feature gate.
-- Do not promote, translate additional locales, add the optional current/max label, or broaden merchant behavior before the Auto-Buy/batch behavior and remaining feature checks are user-accepted.
+- Stop code changes at the `0.1.33-dev` runtime-validation gate.
+- Use user runtime results to correct only demonstrated issues in the new input-state/one-row-layout delta.
+- Do not alter the accepted `0.1.32` purchase engine, promote, translate additional locales, add the optional current/max label, or broaden merchant behavior before this UI delta is user-accepted.
 
 ## Deferred / Out of Scope
 - Longer/higher-frame/two-part burn replacement remains shelved.
 - Buyback-specific Auto-Delete exemption remains deferred because stock 1.12 buyback API lacks an exact item link/ID; do not substitute heuristic matching.
 - Do not redesign features merely to optimize raid-only behaviour; changes should reduce general background cost while preserving functionality.
 - Do not add ClassicAPI or another DLL dependency solely for this performance pass unless a concrete measured limitation of the native 1.12.1 API requires it and the dependency is explicitly reconsidered.
-- Translating the new `0.1.32` strings into non-English locale files is deferred; functional fallback remains enUS.
+- Translating the current Auto-Buy strings into non-English locale files is deferred; functional fallback remains enUS.
 - A dynamic Auto-Buy current/max presentation such as `146/200` beneath saved icons is explicitly deferred until after the current runtime gate; do not add it during validation.
 
 ## Release / Promotion Notes
@@ -304,4 +312,4 @@ Use the exact current `0.1.32-dev` build and verify the corrected Auto-Buy path 
 - External/runtime prerequisites remain World of Warcraft 1.12.1 and pfUI; no optional DLL/client extension is required.
 
 ## Exact Next Step
-User runtime-test the exact `0.1.32-dev` build using the "Next Runtime Test" sequence above. First priority is Symbol of Kings 20 -> max 100 under the new repeated one-vendor-batch execution, plus the permanently visible empty `No more than` input. Do not promote or broaden scope before those results.
+User runtime-test the exact `0.1.33-dev` build using the "Next Runtime Test" sequence above. First priority is the blank/validated `No more than` field, disabled/grey Add state and one-row horizontal saved-items strip. The accepted `0.1.32` purchase engine is intentionally unchanged. Do not promote or broaden scope before those results.
