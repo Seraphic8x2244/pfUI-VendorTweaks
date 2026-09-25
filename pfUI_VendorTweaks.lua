@@ -70,14 +70,40 @@ local function InitDB()
   DB.deleteList = MigrateList(DB.deleteList)
 
   local normalizedBuy = {}
+  local migrateBuyCounts = DB.buyListUnit ~= "inventory_stacks"
   for id, value in pairs(DB.buyList) do
     local itemID = tonumber(id)
-    local desired = tonumber(value)
-    if itemID and desired and desired >= 0 then
-      normalizedBuy[itemID] = math.floor(desired)
+    local configured = tonumber(value)
+    if itemID and configured and configured >= 0 then
+      configured = math.floor(configured)
+
+      -- 0.1.30 stored desired item counts. 0.1.31 stores inventory-stack
+      -- counts instead, so convert the unvalidated 0.1.30 values once.
+      if migrateBuyCounts and configured > 0 then
+        local item = DB.items[itemID]
+        local stackSize = type(item) == "table" and tonumber(item.stack) or nil
+        if not stackSize or stackSize < 1 then
+          local _, _, _, _, _, _, _, infoStack = GetItemInfo(itemID)
+          stackSize = tonumber(infoStack)
+          if stackSize and stackSize >= 1 then
+            if type(item) ~= "table" then item = {} end
+            item.stack = stackSize
+            DB.items[itemID] = item
+          end
+        end
+
+        if stackSize and stackSize >= 1 then
+          configured = math.ceil(configured / stackSize)
+        else
+          configured = 1
+        end
+      end
+
+      normalizedBuy[itemID] = configured
     end
   end
   DB.buyList = normalizedBuy
+  DB.buyListUnit = "inventory_stacks"
 end
 
 local function GetInterval()
@@ -234,8 +260,9 @@ end
 
 -- -----------------------------------------------------------------------------
 -- Auto-Buy maintain-stock engine
--- Counts only bags 0-4. Desired values are actual item counts, while merchant
--- batch quantity is used to round a deficit up to a purchasable lot.
+-- Counts only bags 0-4. DB.buyList values are inventory-stack counts; each
+-- target is capped at stack-size * configured stacks and only whole merchant
+-- batches that fit under that cap are purchased.
 -- -----------------------------------------------------------------------------
 local function CountBagItem(itemID)
   local total = 0
@@ -252,6 +279,22 @@ local function CountBagItem(itemID)
   return total
 end
 
+local function GetAutoBuyStackSize(itemID)
+  local item = DB and DB.items and DB.items[itemID]
+  local stackSize = type(item) == "table" and tonumber(item.stack) or nil
+
+  if not stackSize or stackSize < 1 then
+    local _, _, _, _, _, _, _, infoStack = GetItemInfo(itemID)
+    stackSize = tonumber(infoStack)
+    if stackSize and stackSize >= 1 then
+      CacheItemInfo(itemID, nil, nil, stackSize)
+    end
+  end
+
+  if not stackSize or stackSize < 1 then stackSize = 1 end
+  return math.floor(stackSize)
+end
+
 local function MaintainAutoBuyStock()
   if not DB or type(DB.buyList) ~= "table" then return end
 
@@ -261,20 +304,21 @@ local function MaintainAutoBuyStock()
   for index = 1, merchantCount do
     local link = GetMerchantItemLink(index)
     local id = GetIDFromLink(link)
-    local desired = id and tonumber(DB.buyList[id]) or nil
+    local inventoryStacks = id and tonumber(DB.buyList[id]) or nil
 
-    if id and desired and desired >= 0 and not processed[id] then
+    if id and inventoryStacks and inventoryStacks >= 0 and not processed[id] then
       processed[id] = true
-      desired = math.floor(desired)
+      inventoryStacks = math.floor(inventoryStacks)
 
+      local maximum = GetAutoBuyStackSize(id) * inventoryStacks
       local have = CountBagItem(id)
-      if have < desired then
+      if have < maximum then
         local _, _, _, batchSize, numAvailable = GetMerchantItemInfo(index)
         batchSize = tonumber(batchSize) or 1
         if batchSize < 1 then batchSize = 1 end
 
-        local deficit = desired - have
-        local amount = math.ceil(deficit / batchSize) * batchSize
+        local deficit = maximum - have
+        local amount = math.floor(deficit / batchSize) * batchSize
 
         if numAvailable and numAvailable >= 0 and amount > numAvailable then
           amount = numAvailable
@@ -1170,9 +1214,66 @@ local function BuildComponentsPanel(parent)
   autoBuyHeader:SetText(T_("VT_AUTO_BUY_HEADER"))
 
   local buyDrop = MakeDropSlot(autoBuyHeader, T_("VT_DROP_BUY"))
+  local stagedBuy = nil
+
+  -- Show the staged Auto-Buy item in the drop slot without letting the visual
+  -- child intercept drag/drop input from the button underneath it.
+  buyDrop.stage = CreateFrame("Frame", nil, buyDrop)
+  buyDrop.stage:SetWidth(30)
+  buyDrop.stage:SetHeight(30)
+  buyDrop.stage:SetPoint("CENTER", buyDrop, "CENTER", 0, 0)
+  local buyStageLevel = buyDrop:GetFrameLevel() + 1
+  if buyDrop.backdrop and buyDrop.backdrop.GetFrameLevel and buyDrop.backdrop:GetFrameLevel() >= buyStageLevel then
+    buyStageLevel = buyDrop.backdrop:GetFrameLevel() + 1
+  end
+  if buyDrop.backdrop_border and buyDrop.backdrop_border.GetFrameLevel and buyDrop.backdrop_border:GetFrameLevel() >= buyStageLevel then
+    buyStageLevel = buyDrop.backdrop_border:GetFrameLevel() + 1
+  end
+  buyDrop.stage:SetFrameLevel(buyStageLevel)
+  buyDrop.stage:EnableMouse(false)
+  buyDrop.stage.icon = buyDrop.stage:CreateTexture(nil, "OVERLAY")
+  buyDrop.stage.icon:SetAllPoints(buyDrop.stage)
+  buyDrop.stage:Hide()
+
+  local buyStacksLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  buyStacksLabel:SetPoint("TOPLEFT", buyDrop, "BOTTOMLEFT", 0, -11)
+  buyStacksLabel:SetText(T_("VT_INVENTORY_STACKS"))
+
+  local buyStacks = CreateFrame("EditBox", nil, parent)
+  buyStacks:SetWidth(40)
+  buyStacks:SetHeight(18)
+  buyStacks:SetAutoFocus(false)
+  buyStacks:SetFontObject(GameFontHighlightSmall)
+  buyStacks:SetJustifyH("CENTER")
+  buyStacks:EnableKeyboard(true)
+  if buyStacks.SetNumeric then buyStacks:SetNumeric(true) end
+  buyStacks:SetPoint("LEFT", buyStacksLabel, "RIGHT", 8, 0)
+  if pfUI.api and pfUI.api.SkinEditBox then pfUI.api.SkinEditBox(buyStacks) end
+
+  local buyAdd = CreateFrame("Button", nil, parent)
+  buyAdd:SetWidth(44)
+  buyAdd:SetHeight(20)
+  buyAdd:SetPoint("LEFT", buyStacks, "RIGHT", 8, 0)
+  if pfUI.api and pfUI.api.CreateBackdrop then pfUI.api.CreateBackdrop(buyAdd, nil, true) end
+  buyAdd.text = buyAdd:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  buyAdd.text:SetPoint("CENTER", buyAdd, "CENTER", 0, 0)
+  buyAdd.text:SetText(T_("VT_ADD"))
+
   local buyScroll, buyChild = MakeListScroll(buyDrop, 195, 74)
   buyScroll:ClearAllPoints()
   buyScroll:SetPoint("TOPLEFT", buyDrop, "TOPLEFT", 220, 0)
+
+  local function SetBuyStage(item)
+    stagedBuy = item
+    if stagedBuy then
+      buyDrop.stage.icon:SetTexture(stagedBuy.texture or "Interface\\Icons\\INV_Misc_QuestionMark")
+      buyDrop.stage:Show()
+      buyStacks:SetText(tostring(stagedBuy.stacks or 1))
+    else
+      buyDrop.stage:Hide()
+      buyStacks:SetText("")
+    end
+  end
 
   local autoSellHeader = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   autoSellHeader:SetPoint("TOPLEFT", buyDrop, "BOTTOMLEFT", 0, -48)
@@ -1273,7 +1374,6 @@ local function BuildComponentsPanel(parent)
 
   local vendorDropAnim = MakeDropAnimator(vendorDrop)
   local deleteDropAnim = MakeDropAnimator(deleteDrop)
-  local buyDropAnim = MakeDropAnimator(buyDrop)
 
   local vendorPool = {}
   local deletePool = {}
@@ -1309,7 +1409,7 @@ local function BuildComponentsPanel(parent)
 
   local function MakeBuyRow(pool, rowParent)
     local row = CreateFrame("Button", nil, rowParent)
-    row:SetWidth(92)
+    row:SetWidth(44)
     row:SetHeight(34)
 
     row.icon = row:CreateTexture(nil, "ARTWORK")
@@ -1317,17 +1417,16 @@ local function BuildComponentsPanel(parent)
     row.icon:SetHeight(30)
     row.icon:SetPoint("LEFT", row, "LEFT", 2, 0)
 
-    row.qty = CreateFrame("EditBox", nil, row)
-    row.qty:SetWidth(34)
-    row.qty:SetHeight(18)
-    row.qty:SetAutoFocus(false)
-    row.qty:SetPoint("LEFT", row.icon, "RIGHT", 5, 0)
-    if pfUI.api and pfUI.api.SkinEditBox then pfUI.api.SkinEditBox(row.qty) end
+    row.count = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.count:SetPoint("BOTTOMRIGHT", row.icon, "BOTTOMRIGHT", -1, 1)
+    row.count:SetJustifyH("RIGHT")
+    row.count:SetShadowColor(0, 0, 0, 1)
+    row.count:SetShadowOffset(1, -1)
 
     row.del = CreateFrame("Button", nil, row)
-    row.del:SetWidth(12)
-    row.del:SetHeight(16)
-    row.del:SetPoint("LEFT", row.qty, "RIGHT", 3, 0)
+    row.del:SetWidth(10)
+    row.del:SetHeight(14)
+    row.del:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, -1)
     local x = row.del:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     x:SetPoint("CENTER", row.del, "CENTER", 0, 0)
     x:SetText("|cffff5555x|r")
@@ -1374,46 +1473,23 @@ local function BuildComponentsPanel(parent)
       local displayText = entry.display
       local row = buyPool[i] or MakeBuyRow(buyPool, buyChild)
 
-      local col = math.mod(i - 1, 2)
-      local line = math.floor((i - 1) / 2)
+      local col = math.mod(i - 1, 4)
+      local line = math.floor((i - 1) / 4)
       row:ClearAllPoints()
-      row:SetPoint("TOPLEFT", buyChild, "TOPLEFT", 2 + (col * 96), -2 - (line * 38))
+      row:SetPoint("TOPLEFT", buyChild, "TOPLEFT", 2 + (col * 47), -2 - (line * 38))
       row.icon:SetTexture(entry.texture or "Interface\\Icons\\INV_Misc_QuestionMark")
-      row.qty:SetText(tostring(tonumber(DB.buyList[idKey]) or 0))
+      row.count:SetText(tostring(tonumber(DB.buyList[idKey]) or 0))
 
       row:SetScript("OnEnter", function()
         GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
         GameTooltip:SetText(displayText or string.format(T_("VT_ID"), idKey), 1, 1, 1)
+        GameTooltip:AddLine(T_("VT_INVENTORY_STACKS") .. ": " .. tostring(tonumber(DB.buyList[idKey]) or 0), .8, .8, .8)
         GameTooltip:Show()
       end)
       row:SetScript("OnLeave", function()
         GameTooltip:Hide()
       end)
 
-      local function RestoreQuantity()
-        row.qty:SetText(tostring(tonumber(DB.buyList[idKey]) or 0))
-      end
-
-      local function CommitQuantity()
-        local value = row.qty:GetText()
-        if value and string.find(value, "^%d+$") then
-          DB.buyList[idKey] = tonumber(value)
-        else
-          RestoreQuantity()
-        end
-      end
-
-      row.qty:SetScript("OnEnterPressed", function()
-        CommitQuantity()
-        this:ClearFocus()
-      end)
-      row.qty:SetScript("OnEscapePressed", function()
-        RestoreQuantity()
-        this:ClearFocus()
-      end)
-      row.qty:SetScript("OnEditFocusLost", function()
-        CommitQuantity()
-      end)
       row.del:SetScript("OnClick", function()
         DB.buyList[idKey] = nil
         PruneItemInfo(idKey)
@@ -1422,7 +1498,7 @@ local function BuildComponentsPanel(parent)
       row:Show()
     end
 
-    local buyLines = math.ceil(i / 2)
+    local buyLines = math.ceil(i / 4)
     buyChild:SetHeight(math.max(74, 4 + (buyLines * 38)))
     buyScroll:SetVerticalScroll(math.min(buyScroll:GetVerticalScroll(), math.max(0, buyChild:GetHeight() - buyScroll:GetHeight())))
   end
@@ -1522,6 +1598,43 @@ local function BuildComponentsPanel(parent)
     RefreshBuy()
   end
 
+  local function CommitStagedBuy()
+    if not DB or not stagedBuy then return end
+
+    local value = buyStacks:GetText()
+    if not value or not string.find(value, "^%d+$") then
+      buyStacks:SetText(tostring(tonumber(DB.buyList[stagedBuy.id]) or 1))
+      return
+    end
+
+    local stacks = tonumber(value)
+    if not stacks or stacks < 0 then return end
+    stacks = math.floor(stacks)
+
+    DB.buyList[stagedBuy.id] = stacks
+    DB.vendorList[stagedBuy.id] = nil
+    DB.deleteList[stagedBuy.id] = nil
+    UpdateAutoDeleteEventRegistration()
+    SetBuyStage(nil)
+    Refresh()
+  end
+
+  buyAdd:SetScript("OnClick", function()
+    CommitStagedBuy()
+  end)
+  buyStacks:SetScript("OnEnterPressed", function()
+    CommitStagedBuy()
+    this:ClearFocus()
+  end)
+  buyStacks:SetScript("OnEscapePressed", function()
+    if stagedBuy then
+      buyStacks:SetText(tostring(tonumber(DB.buyList[stagedBuy.id]) or 1))
+    else
+      buyStacks:SetText("")
+    end
+    this:ClearFocus()
+  end)
+
   local function HandleDrop(mode)
     if not DB then return end
 
@@ -1539,23 +1652,14 @@ local function BuildComponentsPanel(parent)
       texture = texture or fallbackTexture
       stack = stack or fallbackStack
     end
+
     if mode == "vendor" then
-      DB.vendorList[itemID] = true
-      DB.deleteList[itemID] = nil
-      DB.buyList[itemID] = nil
       SetDropHighlight(vendorDrop, false)
     elseif mode == "delete" then
-      DB.deleteList[itemID] = true
-      DB.vendorList[itemID] = nil
-      DB.buyList[itemID] = nil
       SetDropHighlight(deleteDrop, false)
     else
-      DB.buyList[itemID] = DB.buyList[itemID] or math.max(1, tonumber(stack) or 1)
-      DB.vendorList[itemID] = nil
-      DB.deleteList[itemID] = nil
       SetDropHighlight(buyDrop, false)
     end
-    UpdateAutoDeleteEventRegistration()
 
     ClearCursor()
 
@@ -1582,14 +1686,27 @@ local function BuildComponentsPanel(parent)
     end
 
     CacheItemInfo(itemID, name or string.format(T_("VT_ITEM_FALLBACK"), itemID), texture, stack)
-    Refresh()
 
     if mode == "vendor" then
+      DB.vendorList[itemID] = true
+      DB.deleteList[itemID] = nil
+      DB.buyList[itemID] = nil
+      UpdateAutoDeleteEventRegistration()
+      Refresh()
       vendorDropAnim:Play(texture)
     elseif mode == "delete" then
+      DB.deleteList[itemID] = true
+      DB.vendorList[itemID] = nil
+      DB.buyList[itemID] = nil
+      UpdateAutoDeleteEventRegistration()
+      Refresh()
       deleteDropAnim:Play(texture)
     else
-      buyDropAnim:Play(texture)
+      SetBuyStage({
+        id = itemID,
+        texture = texture,
+        stacks = tonumber(DB.buyList[itemID]) or 1,
+      })
     end
   end
 
