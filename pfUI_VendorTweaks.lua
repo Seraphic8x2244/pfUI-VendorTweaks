@@ -1218,13 +1218,13 @@ local function BuildComponentsPanel(parent)
   buyDrop.stage:Hide()
 
   local buyMaximumLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  buyMaximumLabel:SetPoint("TOPLEFT", buyDrop, "BOTTOMLEFT", 0, -11)
+  buyMaximumLabel:SetPoint("LEFT", buyDrop, "LEFT", 220, 0)
   buyMaximumLabel:SetText(T_("VT_NO_MORE_THAN"))
 
-  -- Use a permanent pfUI backdrop holder so the input target is visible even
-  -- before an item has been staged and the EditBox contains no text.
+  -- Use a permanent pfUI backdrop holder so the empty input target is always
+  -- visible. Do not pre-fill the field: the player explicitly chooses the cap.
   local buyMaximumBox = CreateFrame("Frame", nil, parent)
-  buyMaximumBox:SetWidth(44)
+  buyMaximumBox:SetWidth(52)
   buyMaximumBox:SetHeight(20)
   buyMaximumBox:SetPoint("LEFT", buyMaximumLabel, "RIGHT", 8, 0)
   if pfUI.api and pfUI.api.CreateBackdrop then pfUI.api.CreateBackdrop(buyMaximumBox, nil, true) end
@@ -1236,7 +1236,6 @@ local function BuildComponentsPanel(parent)
   buyMaximum:SetFontObject(GameFontHighlightSmall)
   buyMaximum:SetJustifyH("CENTER")
   buyMaximum:EnableKeyboard(true)
-  if buyMaximum.SetNumeric then buyMaximum:SetNumeric(true) end
 
   local buyAdd = CreateFrame("Button", nil, parent)
   buyAdd:SetWidth(44)
@@ -1247,24 +1246,72 @@ local function BuildComponentsPanel(parent)
   buyAdd.text:SetPoint("CENTER", buyAdd, "CENTER", 0, 0)
   buyAdd.text:SetText(T_("VT_ADD"))
 
-  local buyScroll, buyChild = MakeListScroll(buyDrop, 195, 74)
-  buyScroll:ClearAllPoints()
-  buyScroll:SetPoint("TOPLEFT", buyDrop, "TOPLEFT", 220, 0)
+  -- Saved Auto-Buy items occupy one icon-high strip across the full panel.
+  -- Overflow stays on one line and scrolls horizontally with the mouse wheel.
+  local buyScroll = CreateFrame("ScrollFrame", nil, parent)
+  buyScroll:SetWidth(415)
+  buyScroll:SetHeight(38)
+  buyScroll:SetPoint("TOPLEFT", buyDrop, "BOTTOMLEFT", 0, -7)
+  if pfUI.api and pfUI.api.CreateBackdrop then pfUI.api.CreateBackdrop(buyScroll, nil, true) end
+
+  local buyChild = CreateFrame("Frame", nil, buyScroll)
+  buyChild:SetWidth(411)
+  buyChild:SetHeight(34)
+  buyScroll:SetScrollChild(buyChild)
+  buyScroll:EnableMouseWheel(true)
+  buyScroll:SetScript("OnMouseWheel", function()
+    local maxScroll = math.max(0, buyChild:GetWidth() - buyScroll:GetWidth())
+    local nextScroll = buyScroll:GetHorizontalScroll() - (arg1 * 141)
+    if nextScroll < 0 then nextScroll = 0 end
+    if nextScroll > maxScroll then nextScroll = maxScroll end
+    buyScroll:SetHorizontalScroll(nextScroll)
+  end)
+
+  local function ValidBuyMaximum()
+    local value = buyMaximum:GetText() or ""
+    if not string.find(value, "^%d+$") then return nil end
+    local maximum = tonumber(value)
+    if not maximum or maximum < 1 then return nil end
+    return math.floor(maximum)
+  end
+
+  local function UpdateBuyAddState()
+    local value = buyMaximum:GetText() or ""
+    local maximum = ValidBuyMaximum()
+
+    if value ~= "" and not maximum then
+      buyMaximum:SetTextColor(1, .2, .2)
+    else
+      buyMaximum:SetTextColor(1, 1, 1)
+    end
+
+    if stagedBuy and maximum then
+      buyAdd:Enable()
+      buyAdd.text:SetTextColor(1, .82, 0)
+    else
+      buyAdd:Disable()
+      buyAdd.text:SetTextColor(.5, .5, .5)
+    end
+  end
 
   local function SetBuyStage(item)
     stagedBuy = item
     if stagedBuy then
       buyDrop.stage.icon:SetTexture(stagedBuy.texture or "Interface\\Icons\\INV_Misc_QuestionMark")
       buyDrop.stage:Show()
-      buyMaximum:SetText(tostring(stagedBuy.maximum or 1))
     else
       buyDrop.stage:Hide()
-      buyMaximum:SetText("")
     end
+    UpdateBuyAddState()
   end
 
+  buyMaximum:SetScript("OnTextChanged", function()
+    UpdateBuyAddState()
+  end)
+  UpdateBuyAddState()
+
   local autoSellHeader = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  autoSellHeader:SetPoint("TOPLEFT", buyDrop, "BOTTOMLEFT", 0, -48)
+  autoSellHeader:SetPoint("TOPLEFT", buyScroll, "BOTTOMLEFT", 0, -11)
   autoSellHeader:SetText(T_("VT_AUTO_SELL_HEADER"))
 
   local autoDeleteHeader = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -1461,10 +1508,8 @@ local function BuildComponentsPanel(parent)
       local displayText = entry.display
       local row = buyPool[i] or MakeBuyRow(buyPool, buyChild)
 
-      local col = math.mod(i - 1, 4)
-      local line = math.floor((i - 1) / 4)
       row:ClearAllPoints()
-      row:SetPoint("TOPLEFT", buyChild, "TOPLEFT", 2 + (col * 47), -2 - (line * 38))
+      row:SetPoint("TOPLEFT", buyChild, "TOPLEFT", 2 + ((i - 1) * 47), -2)
       row.icon:SetTexture(entry.texture or "Interface\\Icons\\INV_Misc_QuestionMark")
       row.count:SetText(tostring(tonumber(DB.buyList[idKey]) or 0))
 
@@ -1486,9 +1531,9 @@ local function BuildComponentsPanel(parent)
       row:Show()
     end
 
-    local buyLines = math.ceil(i / 4)
-    buyChild:SetHeight(math.max(74, 4 + (buyLines * 38)))
-    buyScroll:SetVerticalScroll(math.min(buyScroll:GetVerticalScroll(), math.max(0, buyChild:GetHeight() - buyScroll:GetHeight())))
+    buyChild:SetWidth(math.max(411, 4 + (i * 47)))
+    buyChild:SetHeight(34)
+    buyScroll:SetHorizontalScroll(math.min(buyScroll:GetHorizontalScroll(), math.max(0, buyChild:GetWidth() - buyScroll:GetWidth())))
   end
 
   local function Refresh()
@@ -1589,21 +1634,18 @@ local function BuildComponentsPanel(parent)
   local function CommitStagedBuy()
     if not DB or not stagedBuy then return end
 
-    local value = buyMaximum:GetText()
-    if not value or not string.find(value, "^%d+$") then
-      buyMaximum:SetText(tostring(tonumber(DB.buyList[stagedBuy.id]) or 1))
+    local maximum = ValidBuyMaximum()
+    if not maximum then
+      UpdateBuyAddState()
       return
     end
-
-    local maximum = tonumber(value)
-    if not maximum or maximum < 0 then return end
-    maximum = math.floor(maximum)
 
     DB.buyList[stagedBuy.id] = maximum
     DB.vendorList[stagedBuy.id] = nil
     DB.deleteList[stagedBuy.id] = nil
     UpdateAutoDeleteEventRegistration()
     SetBuyStage(nil)
+    buyMaximum:SetText("")
     Refresh()
   end
 
@@ -1615,11 +1657,7 @@ local function BuildComponentsPanel(parent)
     this:ClearFocus()
   end)
   buyMaximum:SetScript("OnEscapePressed", function()
-    if stagedBuy then
-      buyMaximum:SetText(tostring(tonumber(DB.buyList[stagedBuy.id]) or 1))
-    else
-      buyMaximum:SetText("")
-    end
+    buyMaximum:SetText("")
     this:ClearFocus()
   end)
 
@@ -1690,12 +1728,9 @@ local function BuildComponentsPanel(parent)
       Refresh()
       deleteDropAnim:Play(texture)
     else
-      local defaultMaximum = tonumber(stack) or 1
-      if defaultMaximum < 1 then defaultMaximum = 1 end
       SetBuyStage({
         id = itemID,
         texture = texture,
-        maximum = tonumber(DB.buyList[itemID]) or math.floor(defaultMaximum),
       })
     end
   end
